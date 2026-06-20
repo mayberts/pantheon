@@ -19,11 +19,17 @@ services:
     restart: unless-stopped
 
   app:
-    image: ghcr.io/<youruser>/pantheon:latest
+    image: ghcr.io/mayberts/pantheon:latest
     pull_policy: always
-    env_file: /mnt/user/appdata/pantheon/.env
     environment:
       DATABASE_URL: postgresql://pantheon:pantheon@db:5432/pantheon
+      STEAM_API_KEY: ${STEAM_API_KEY}
+      STEAM_ID: ${STEAM_ID}
+      RA_USERNAME: ${RA_USERNAME:-}
+      RA_API_KEY: ${RA_API_KEY:-}
+      RA_TARGET_USER: ${RA_TARGET_USER:-}
+      SYNC_INTERVAL_HOURS: ${SYNC_INTERVAL_HOURS:-12}
+      REQUEST_DELAY_SECONDS: ${REQUEST_DELAY_SECONDS:-0.4}
     ports:
       - "8744:8000"
     depends_on:
