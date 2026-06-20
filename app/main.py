@@ -91,7 +91,8 @@ async def summary():
                 CASE WHEN SUM(ug.total_achievements) > 0
                      THEN ROUND(SUM(ug.earned_achievements)::numeric
                           / SUM(ug.total_achievements) * 100, 1)
-                     ELSE 0 END                          AS overall_pct
+                     ELSE 0 END                          AS overall_pct,
+                COUNT(*) FILTER (WHERE ug.completion_pct = 100) AS perfect_games
             FROM user_games ug
             """,
         )
@@ -117,6 +118,7 @@ async def summary():
         "total_earned": int(row["total_earned"] or 0),
         "total_possible": int(row["total_possible"] or 0),
         "overall_pct": float(row["overall_pct"] or 0),
+        "perfect_games": int(row["perfect_games"] or 0),
         "by_platform": [dict(r) for r in by_platform],
     }
 

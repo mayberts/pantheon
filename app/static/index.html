@@ -3,229 +3,524 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pantheon</title>
+<title>Pantheon // Hall of Records</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0f1117;
-    --surface: #1a1d27;
-    --surface2: #22253a;
-    --border: #2a2d3e;
-    --accent: #4a90e2;
-    --accent2: #7c5cbf;
-    --text: #e0e0e0;
-    --muted: #7a7f9a;
-    --green: #4caf76;
-    --radius: 10px;
+    --bg:       #090c13;
+    --bg2:      #0d1120;
+    --surface:  #111827;
+    --border:   #1e2a3a;
+    --border2:  #253045;
+    --cyan:     #00d4e8;
+    --cyan-dim: #00a8b8;
+    --amber:    #f0a020;
+    --text:     #e8eaf0;
+    --muted:    #4a5c72;
+    --muted2:   #6b7f99;
+    --green:    #00e87a;
+    --red:      #e83c3c;
   }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; min-height: 100vh; }
 
-  /* Nav */
-  nav { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; align-items: center; gap: 24px; height: 56px; }
-  nav .logo { font-weight: 700; font-size: 1.2rem; color: var(--accent); letter-spacing: 0.05em; margin-right: 12px; }
-  nav button { background: none; border: none; color: var(--muted); font-size: 0.9rem; cursor: pointer; padding: 6px 14px; border-radius: 6px; transition: color 0.15s, background 0.15s; }
-  nav button.active, nav button:hover { color: var(--text); background: var(--surface2); }
-  nav .spacer { flex: 1; }
-  nav .sync-btn { background: var(--accent); color: #fff; border: none; padding: 7px 16px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: opacity 0.15s; }
-  nav .sync-btn:disabled { opacity: 0.5; cursor: default; }
-  nav .sync-status { font-size: 0.8rem; color: var(--muted); }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', 'Segoe UI', sans-serif;
+    font-weight: 500;
+    min-height: 100vh;
+    font-size: 15px;
+  }
 
-  /* Tabs */
-  .tab { display: none; padding: 24px; max-width: 1400px; margin: 0 auto; }
-  .tab.active { display: block; }
+  /* ── Header ── */
+  header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 32px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .brand { line-height: 1; }
+  .brand-sub {
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+    color: var(--cyan);
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .brand-title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--text);
+  }
+  .header-right { display: flex; align-items: center; gap: 16px; }
+  .sync-label { font-size: 0.75rem; color: var(--muted2); letter-spacing: 0.08em; text-transform: uppercase; }
 
-  /* Summary */
-  .stat-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 28px; }
-  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
-  .stat-card .label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; }
-  .stat-card .value { font-size: 2rem; font-weight: 700; }
-  .stat-card .sub { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
-  .platform-table { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-  .platform-table table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-  .platform-table th { background: var(--surface2); text-align: left; padding: 10px 16px; color: var(--muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; }
-  .platform-table td { padding: 12px 16px; border-top: 1px solid var(--border); }
-  .pct-bar-sm { height: 4px; background: var(--border); border-radius: 2px; margin-top: 6px; }
-  .pct-bar-sm .fill { height: 100%; background: var(--accent); border-radius: 2px; }
+  .btn-sync {
+    background: var(--cyan);
+    color: #000;
+    border: none;
+    padding: 8px 20px;
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-sync:hover { background: #00eeff; }
+  .btn-sync:disabled { background: var(--muted); cursor: default; }
 
-  /* Library controls */
-  .controls { display: flex; gap: 12px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
-  .controls input[type=text] { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 8px 14px; border-radius: 6px; font-size: 0.9rem; width: 240px; outline: none; }
-  .controls input[type=text]:focus { border-color: var(--accent); }
-  .controls select { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 6px; font-size: 0.9rem; outline: none; cursor: pointer; }
-  .controls .count { margin-left: auto; color: var(--muted); font-size: 0.85rem; }
+  /* ── Main layout ── */
+  main { max-width: 1200px; margin: 0 auto; padding: 28px 32px 60px; }
 
-  /* Game grid */
-  .game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(560px, 1fr)); gap: 12px; }
+  /* ── Section header ── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+    margin-top: 32px;
+  }
+  .section-label {
+    font-size: 0.7rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--muted2);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .section-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
 
-  .game-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; cursor: pointer; transition: border-color 0.15s; }
-  .game-card:hover { border-color: var(--accent); }
-  .game-card.expanded { border-color: var(--accent2); }
+  /* ── Stats bar ── */
+  .stats-bar {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--cyan);
+    padding: 20px 28px;
+    display: flex;
+    align-items: center;
+    gap: 48px;
+    flex-wrap: wrap;
+  }
+  .stat-main .val {
+    font-size: 2.8rem;
+    font-weight: 700;
+    color: var(--cyan);
+    line-height: 1;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .stat-main .val span { font-size: 1.4rem; }
+  .stat-main .lbl {
+    font-size: 0.65rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted2);
+    margin-top: 4px;
+  }
+  .stat-divider { width: 1px; height: 48px; background: var(--border2); }
+  .stat .val {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .stat.amber .val { color: var(--amber); }
+  .stat .lbl {
+    font-size: 0.62rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted2);
+    margin-top: 2px;
+  }
 
-  .game-card-header { display: flex; gap: 0; position: relative; }
-  .game-card-bg { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: 0.12; filter: blur(2px); pointer-events: none; }
-  .game-card-content { display: flex; align-items: center; gap: 16px; padding: 16px; position: relative; z-index: 1; width: 100%; }
-  .game-icon { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; flex-shrink: 0; background: var(--surface2); }
-  .game-icon-placeholder { width: 80px; height: 80px; border-radius: 6px; flex-shrink: 0; background: var(--surface2); display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 1.6rem; }
+  /* ── Platforms ── */
+  .platforms-grid {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .platform-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    padding: 14px 20px;
+    min-width: 180px;
+  }
+  .platform-card .p-name {
+    font-size: 0.65rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .platform-card .p-stats { display: flex; gap: 20px; }
+  .platform-card .p-stat .val { font-size: 1.1rem; font-weight: 700; }
+  .platform-card .p-stat .lbl { font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted2); }
+  .p-bar { height: 2px; background: var(--border2); margin-top: 10px; }
+  .p-bar .fill { height: 100%; background: var(--cyan-dim); }
+
+  /* ── Library controls ── */
+  .library-controls { display: flex; align-items: center; gap: 0; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+  .sort-tabs { display: flex; border: 1px solid var(--border); }
+  .sort-tab {
+    background: none;
+    border: none;
+    border-right: 1px solid var(--border);
+    color: var(--muted2);
+    font-family: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 7px 16px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+  }
+  .sort-tab:last-child { border-right: none; }
+  .sort-tab.active { background: var(--cyan); color: #000; }
+  .sort-tab:not(.active):hover { background: var(--surface); color: var(--text); }
+
+  .search-box {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.8rem;
+    padding: 7px 14px;
+    outline: none;
+    width: 220px;
+    letter-spacing: 0.04em;
+  }
+  .search-box:focus { border-color: var(--cyan-dim); }
+  .search-box::placeholder { color: var(--muted); }
+
+  .plat-filter {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 7px 12px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .lib-count { margin-left: auto; font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted2); }
+
+  /* ── Game grid ── */
+  .game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(520px, 1fr)); gap: 2px; }
+
+  .game-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: border-color 0.12s;
+    position: relative;
+    overflow: hidden;
+  }
+  .game-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 2px;
+    background: var(--border2);
+    transition: background 0.12s;
+  }
+  .game-card:hover { border-color: var(--border2); }
+  .game-card:hover::before { background: var(--cyan-dim); }
+  .game-card.expanded::before { background: var(--cyan); }
+  .game-card.expanded { border-color: var(--cyan-dim); }
+
+  .game-card-bg {
+    position: absolute; inset: 0;
+    background-size: cover;
+    background-position: center;
+    opacity: 0.07;
+    pointer-events: none;
+  }
+
+  .game-card-body {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px 14px 18px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .game-icon {
+    width: 72px; height: 72px;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+  }
+  .game-icon-placeholder {
+    width: 72px; height: 72px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 1.4rem;
+  }
+
   .game-info { flex: 1; min-width: 0; }
-  .game-name { font-weight: 700; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 6px; }
-  .game-meta { display: flex; gap: 16px; font-size: 0.8rem; color: var(--muted); margin-bottom: 8px; flex-wrap: wrap; }
-  .game-meta span { display: flex; align-items: center; gap: 4px; }
-  .pct-bar { height: 5px; background: var(--border); border-radius: 3px; margin-bottom: 6px; }
-  .pct-bar .fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 3px; transition: width 0.4s; }
-  .pct-label { font-size: 0.75rem; color: var(--muted); }
-  .platform-badge { display: inline-flex; align-items: center; gap: 5px; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; font-size: 0.72rem; color: var(--muted); margin-top: 4px; }
-  .platform-badge img { width: 12px; height: 12px; }
+  .game-name {
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 5px;
+  }
+  .game-meta {
+    display: flex;
+    gap: 18px;
+    font-size: 0.72rem;
+    color: var(--muted2);
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .game-meta span { display: flex; align-items: center; gap: 5px; }
+  .game-meta .ico { color: var(--cyan-dim); font-size: 0.65rem; }
 
-  /* Achievement panel */
-  .ach-panel { border-top: 1px solid var(--border); padding: 16px; display: none; }
+  .pct-track { height: 3px; background: var(--border2); margin-bottom: 4px; }
+  .pct-fill { height: 100%; background: var(--cyan-dim); transition: width 0.3s; }
+  .pct-fill.full { background: var(--cyan); }
+
+  .game-footer { display: flex; align-items: center; justify-content: space-between; }
+  .pct-val { font-size: 0.68rem; letter-spacing: 0.1em; color: var(--muted2); }
+  .pct-val.full { color: var(--cyan); }
+
+  .plat-tag {
+    font-size: 0.6rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+  }
+
+  /* ── Achievement panel ── */
+  .ach-panel {
+    display: none;
+    border-top: 1px solid var(--border);
+    padding: 12px 18px;
+    position: relative;
+    z-index: 1;
+  }
   .game-card.expanded .ach-panel { display: block; }
-  .ach-panel .loading { color: var(--muted); font-size: 0.85rem; text-align: center; padding: 12px; }
-  .ach-list { display: flex; flex-direction: column; gap: 2px; max-height: 320px; overflow-y: auto; }
-  .ach-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 6px; }
-  .ach-row:hover { background: var(--surface2); }
-  .ach-row.locked { opacity: 0.45; }
-  .ach-icon { width: 36px; height: 36px; border-radius: 4px; object-fit: cover; background: var(--surface2); flex-shrink: 0; }
-  .ach-icon-placeholder { width: 36px; height: 36px; border-radius: 4px; background: var(--surface2); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; color: var(--muted); }
+
+  .ach-list { display: flex; flex-direction: column; max-height: 300px; overflow-y: auto; }
+  .ach-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 6px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  .ach-row:last-child { border-bottom: none; }
+  .ach-row:hover { background: var(--surface); }
+  .ach-row.locked { opacity: 0.35; }
+
+  .ach-icon { width: 32px; height: 32px; object-fit: cover; border: 1px solid var(--border); flex-shrink: 0; }
+  .ach-icon-ph { width: 32px; height: 32px; background: var(--surface); border: 1px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 0.9rem; }
   .ach-text { flex: 1; min-width: 0; }
-  .ach-name { font-size: 0.85rem; font-weight: 600; }
-  .ach-desc { font-size: 0.75rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .ach-meta { text-align: right; font-size: 0.75rem; color: var(--muted); flex-shrink: 0; }
-  .ach-date { font-size: 0.7rem; color: var(--green); }
-  .ach-rarity { font-size: 0.7rem; }
+  .ach-name { font-size: 0.8rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ach-desc { font-size: 0.68rem; color: var(--muted2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+  .ach-right { text-align: right; flex-shrink: 0; }
+  .ach-date { font-size: 0.65rem; color: var(--green); letter-spacing: 0.05em; }
+  .ach-rarity { font-size: 0.62rem; color: var(--muted2); margin-top: 1px; }
 
-  /* Status tab */
-  .status-section { margin-bottom: 24px; }
-  .status-section h2 { font-size: 1rem; color: var(--muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
-  .run-list { display: flex; flex-direction: column; gap: 8px; }
-  .run-row { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; display: flex; gap: 16px; align-items: center; font-size: 0.85rem; }
-  .run-row .run-status { padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; }
-  .run-row .run-status.ok { background: #1e4d2e; color: #4caf76; }
-  .run-row .run-status.error { background: #4d1e1e; color: #f44; }
-  .run-row .run-status.running { background: #1e3a4d; color: #4a90e2; }
-  .run-row .run-detail { color: var(--muted); flex: 1; }
-  .account-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
-  .account-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
-  .account-card .platform { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
-  .account-card .name { font-weight: 600; }
-  .account-card .synced { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+  .ach-loading { font-size: 0.72rem; color: var(--muted2); text-align: center; padding: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
 
-  /* Pagination */
-  .pagination { display: flex; justify-content: center; gap: 8px; margin-top: 24px; }
-  .pagination button { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 6px 14px; border-radius: 6px; cursor: pointer; }
-  .pagination button:disabled { opacity: 0.4; cursor: default; }
-  .pagination button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  /* ── Empty / pagination ── */
+  .empty-state {
+    background: var(--bg2);
+    border: 1px dashed var(--border2);
+    padding: 40px;
+    text-align: center;
+    color: var(--muted2);
+    font-size: 0.82rem;
+    letter-spacing: 0.1em;
+  }
 
-  .empty { text-align: center; color: var(--muted); padding: 60px 0; font-size: 0.95rem; }
+  .pagination { display: flex; justify-content: center; gap: 2px; margin-top: 20px; }
+  .pagination button {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    color: var(--muted2);
+    font-family: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    padding: 5px 12px;
+    cursor: pointer;
+  }
+  .pagination button.active { background: var(--cyan); border-color: var(--cyan); color: #000; }
+  .pagination button:disabled { opacity: 0.3; cursor: default; }
 
   @media (max-width: 640px) {
+    header { padding: 14px 16px; }
+    main { padding: 20px 16px 40px; }
     .game-grid { grid-template-columns: 1fr; }
-    .controls input[type=text] { width: 100%; }
+    .search-box { width: 100%; }
   }
 </style>
 </head>
 <body>
 
-<nav>
-  <span class="logo">⚡ Pantheon</span>
-  <button class="active" onclick="showTab('library')">Library</button>
-  <button onclick="showTab('summary')">Summary</button>
-  <button onclick="showTab('status')">Status</button>
-  <span class="spacer"></span>
-  <span class="sync-status" id="syncStatus"></span>
-  <button class="sync-btn" id="syncBtn" onclick="triggerSync()">Sync now</button>
-</nav>
+<header>
+  <div class="brand">
+    <div class="brand-sub">Pantheon // Hall of Records</div>
+    <div class="brand-title">Cross-Platform Achievements</div>
+  </div>
+  <div class="header-right">
+    <span class="sync-label" id="syncLabel">Ready</span>
+    <button class="btn-sync" id="syncBtn" onclick="triggerSync()">Sync Now</button>
+  </div>
+</header>
 
-<div class="tab active" id="tab-library">
-  <div class="controls">
-    <input type="text" id="searchInput" placeholder="Search games…" oninput="onSearch()">
-    <select id="sortSelect" onchange="loadGames(1)">
-      <option value="recent">Recently played</option>
-      <option value="completion">Completion %</option>
-      <option value="playtime">Playtime</option>
-      <option value="name">Name</option>
-    </select>
-    <select id="platformSelect" onchange="loadGames(1)">
-      <option value="">All platforms</option>
+<main>
+
+  <!-- Stats -->
+  <div class="section-header" style="margin-top:0">
+    <div class="section-line"></div>
+  </div>
+  <div class="stats-bar" id="statsBar">
+    <div class="stat-main">
+      <div class="val" id="s-pct">0<span>%</span></div>
+      <div class="lbl">Total Completion</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat">
+      <div class="val" id="s-games">0</div>
+      <div class="lbl">Games Tracked</div>
+    </div>
+    <div class="stat">
+      <div class="val" id="s-earned">0</div>
+      <div class="lbl">Unlocked</div>
+    </div>
+    <div class="stat">
+      <div class="val" id="s-total">0</div>
+      <div class="lbl">Available</div>
+    </div>
+    <div class="stat amber" id="s-perfect-wrap">
+      <div class="val" id="s-perfect">0</div>
+      <div class="lbl">Completed 100%</div>
+    </div>
+  </div>
+
+  <!-- Platforms -->
+  <div class="section-header">
+    <div class="section-label">Platforms</div>
+    <div class="section-line"></div>
+  </div>
+  <div class="platforms-grid" id="platformsGrid">
+    <div class="empty-state" style="width:100%">Loading record…</div>
+  </div>
+
+  <!-- Library -->
+  <div class="section-header">
+    <div class="section-label">Library</div>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="library-controls">
+    <div class="sort-tabs">
+      <button class="sort-tab active" data-sort="completion" onclick="setSort(this)">Completion</button>
+      <button class="sort-tab" data-sort="recent" onclick="setSort(this)">Recent</button>
+      <button class="sort-tab" data-sort="playtime" onclick="setSort(this)">Playtime</button>
+      <button class="sort-tab" data-sort="name" onclick="setSort(this)">Name</button>
+    </div>
+    <input class="search-box" type="text" id="searchInput" placeholder="Search games…" oninput="onSearch()">
+    <select class="plat-filter" id="platFilter" onchange="loadGames(1)">
+      <option value="">All Platforms</option>
       <option value="steam">Steam</option>
       <option value="retroachievements">RetroAchievements</option>
     </select>
-    <span class="count" id="gameCount"></span>
+    <span class="lib-count" id="libCount"></span>
   </div>
+
   <div class="game-grid" id="gameGrid"></div>
   <div class="pagination" id="pagination"></div>
-</div>
 
-<div class="tab" id="tab-summary">
-  <div class="stat-cards" id="statCards"></div>
-  <div class="platform-table" id="platformTable"></div>
-</div>
-
-<div class="tab" id="tab-status">
-  <div class="status-section">
-    <h2>Linked Accounts</h2>
-    <div class="account-cards" id="accountCards"></div>
-  </div>
-  <div class="status-section">
-    <h2>Recent Sync Runs</h2>
-    <div class="run-list" id="runList"></div>
-  </div>
-</div>
+</main>
 
 <script>
-let currentPage = 1;
+let currentSort = 'completion';
 let searchTimer = null;
-let expandedAchievements = {};
+let achCache = {};
 
-function showTab(name) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
-  document.getElementById('tab-' + name).classList.add('active');
-  event.target.classList.add('active');
-  if (name === 'summary') loadSummary();
-  if (name === 'status') loadStatus();
+// ── Init ─────────────────────────────────────────────────────────────────────
+
+loadSummary();
+loadGames(1);
+
+// ── Summary ───────────────────────────────────────────────────────────────────
+
+async function loadSummary() {
+  const d = await apiFetch('/api/summary');
+  if (!d) return;
+
+  document.getElementById('s-pct').innerHTML = d.overall_pct + '<span>%</span>';
+  document.getElementById('s-games').textContent = d.total_games;
+  document.getElementById('s-earned').textContent = d.total_earned.toLocaleString();
+  document.getElementById('s-total').textContent = d.total_possible.toLocaleString();
+  document.getElementById('s-perfect').textContent = d.perfect_games || 0;
+
+  const pg = document.getElementById('platformsGrid');
+  if (!d.by_platform.length) {
+    pg.innerHTML = '<div class="empty-state" style="width:100%">No record yet. Run a sync to pull your history.</div>';
+    return;
+  }
+  pg.innerHTML = d.by_platform.map(p => `
+    <div class="platform-card">
+      <div class="p-name">${platLabel(p.platform)}</div>
+      <div class="p-stats">
+        <div class="p-stat"><div class="val">${p.games}</div><div class="lbl">Games</div></div>
+        <div class="p-stat"><div class="val">${(p.earned||0).toLocaleString()}</div><div class="lbl">Unlocked</div></div>
+        <div class="p-stat"><div class="val">${p.pct}%</div><div class="lbl">Complete</div></div>
+      </div>
+      <div class="p-bar"><div class="fill" style="width:${p.pct}%"></div></div>
+    </div>`).join('');
 }
 
-function fmt(dt) {
-  if (!dt) return '—';
-  const d = new Date(dt);
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
-function fmtTime(minutes) {
-  if (!minutes) return '0m';
-  if (minutes < 60) return minutes + 'm';
-  const h = Math.floor(minutes / 60), m = minutes % 60;
-  return m ? `${h}h ${m}m` : `${h}h`;
-}
-
-function platformIcon(platform) {
-  if (platform === 'steam') return `<img src="https://store.steampowered.com/favicon.ico" alt="">`;
-  if (platform === 'retroachievements') return `🏆`;
-  return '';
-}
-
-function platformLabel(platform) {
-  if (platform === 'steam') return 'Steam';
-  if (platform === 'retroachievements') return 'RetroAchievements';
-  return platform;
-}
-
-// ── Library ──────────────────────────────────────────────────────────────────
+// ── Games ─────────────────────────────────────────────────────────────────────
 
 async function loadGames(page = 1) {
-  currentPage = page;
-  const sort = document.getElementById('sortSelect').value;
-  const platform = document.getElementById('platformSelect').value;
+  const sort = currentSort;
   const search = document.getElementById('searchInput').value.trim();
+  const platform = document.getElementById('platFilter').value;
 
   let url = `/api/games?sort=${sort}&page=${page}&page_size=20`;
   if (platform) url += `&platform=${encodeURIComponent(platform)}`;
   if (search) url += `&search=${encodeURIComponent(search)}`;
 
-  const res = await fetch(url);
-  const data = await res.json();
+  const data = await apiFetch(url);
+  if (!data) return;
 
-  document.getElementById('gameCount').textContent = `${data.total} games`;
+  document.getElementById('libCount').textContent = data.total + ' games';
   renderGames(data.games);
   renderPagination(data.total, page, 20);
 }
@@ -233,7 +528,7 @@ async function loadGames(page = 1) {
 function renderGames(games) {
   const grid = document.getElementById('gameGrid');
   if (!games.length) {
-    grid.innerHTML = '<div class="empty" style="grid-column:1/-1">No games found.</div>';
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">No record yet. Run a sync to pull your history.</div>';
     return;
   }
   grid.innerHTML = games.map(g => gameCardHTML(g)).join('');
@@ -241,85 +536,90 @@ function renderGames(games) {
 
 function gameCardHTML(g) {
   const pct = parseFloat(g.completion_pct) || 0;
-  const bgStyle = g.icon_url ? `style="background-image:url('${g.icon_url}')"` : '';
+  const full = pct >= 100;
+  const bg = g.icon_url ? `style="background-image:url('${g.icon_url}')"` : '';
   const icon = g.icon_url
     ? `<img class="game-icon" src="${g.icon_url}" alt="" onerror="this.style.display='none'">`
-    : `<div class="game-icon-placeholder">🎮</div>`;
+    : `<div class="game-icon-placeholder">◈</div>`;
 
   return `
-  <div class="game-card" id="card-${g.platform_game_id}" onclick="toggleAchievements(${g.platform_game_id}, this)">
-    <div class="game-card-header">
-      <div class="game-card-bg" ${bgStyle}></div>
-      <div class="game-card-content">
-        ${icon}
-        <div class="game-info">
-          <div class="game-name" title="${g.name}">${escHtml(g.name)}</div>
-          <div class="game-meta">
-            <span>🏆 ${g.earned_achievements} / ${g.total_achievements}</span>
-            <span>⏱ ${fmtTime(g.playtime_minutes)}</span>
-            <span>📅 ${fmt(g.last_played_at)}</span>
-          </div>
-          <div class="pct-bar"><div class="fill" style="width:${pct}%"></div></div>
-          <div class="pct-label">${pct}%</div>
-          <div class="platform-badge">${platformIcon(g.platform)} ${platformLabel(g.platform)}</div>
-        </div>
+<div class="game-card" id="card-${g.platform_game_id}" onclick="toggleAch(${g.platform_game_id}, this)">
+  <div class="game-card-bg" ${bg}></div>
+  <div class="game-card-body">
+    ${icon}
+    <div class="game-info">
+      <div class="game-name" title="${esc(g.name)}">${esc(g.name)}</div>
+      <div class="game-meta">
+        <span><span class="ico">◈</span>${g.earned_achievements} / ${g.total_achievements}</span>
+        <span><span class="ico">◷</span>${fmtTime(g.playtime_minutes)}</span>
+        <span><span class="ico">◻</span>${fmt(g.last_played_at)}</span>
+      </div>
+      <div class="pct-track"><div class="pct-fill ${full?'full':''}" style="width:${pct}%"></div></div>
+      <div class="game-footer">
+        <span class="pct-val ${full?'full':''}">${pct}%</span>
+        <span class="plat-tag">${platLabel(g.platform)}</span>
       </div>
     </div>
-    <div class="ach-panel" id="ach-${g.platform_game_id}">
-      <div class="loading">Loading achievements…</div>
-    </div>
-  </div>`;
+  </div>
+  <div class="ach-panel" id="ach-${g.platform_game_id}">
+    <div class="ach-loading">Loading achievements…</div>
+  </div>
+</div>`;
 }
 
-async function toggleAchievements(id, cardEl) {
+async function toggleAch(id, card) {
   const panel = document.getElementById('ach-' + id);
-  const isExpanded = cardEl.classList.toggle('expanded');
+  const expanded = card.classList.toggle('expanded');
+  if (!expanded) return;
 
-  if (!isExpanded) return;
+  if (achCache[id]) { panel.innerHTML = achCache[id]; return; }
 
-  if (expandedAchievements[id]) {
-    panel.innerHTML = expandedAchievements[id];
-    return;
-  }
+  const achs = await apiFetch(`/api/games/${id}/achievements`);
+  if (!achs) { panel.innerHTML = '<div class="ach-loading">Failed to load.</div>'; return; }
 
-  const res = await fetch(`/api/games/${id}/achievements`);
-  const achs = await res.json();
   const html = achs.length
     ? `<div class="ach-list">${achs.map(achRowHTML).join('')}</div>`
-    : `<div class="loading">No achievement data.</div>`;
-  expandedAchievements[id] = html;
+    : `<div class="ach-loading">No achievement data available.</div>`;
+  achCache[id] = html;
   panel.innerHTML = html;
 }
 
 function achRowHTML(a) {
-  const locked = !a.unlocked;
   const icon = a.icon_url
     ? `<img class="ach-icon" src="${a.icon_url}" alt="" onerror="this.style.display='none'">`
-    : `<div class="ach-icon-placeholder">🏅</div>`;
-  const rarity = a.rarity_pct != null ? `<div class="ach-rarity">${parseFloat(a.rarity_pct).toFixed(1)}% unlock rate</div>` : '';
+    : `<div class="ach-icon-ph">◈</div>`;
+  const rarity = a.rarity_pct != null ? `<div class="ach-rarity">${parseFloat(a.rarity_pct).toFixed(1)}% global</div>` : '';
   const date = a.unlocked_at ? `<div class="ach-date">${fmt(a.unlocked_at)}</div>` : '';
   return `
-  <div class="ach-row ${locked ? 'locked' : ''}">
-    ${icon}
-    <div class="ach-text">
-      <div class="ach-name">${escHtml(a.name || a.platform_ach_id)}</div>
-      <div class="ach-desc">${escHtml(a.description || '')}</div>
-    </div>
-    <div class="ach-meta">${date}${rarity}</div>
-  </div>`;
+<div class="ach-row ${a.unlocked ? '' : 'locked'}">
+  ${icon}
+  <div class="ach-text">
+    <div class="ach-name">${esc(a.name || a.platform_ach_id)}</div>
+    <div class="ach-desc">${esc(a.description || '')}</div>
+  </div>
+  <div class="ach-right">${date}${rarity}</div>
+</div>`;
 }
 
-function renderPagination(total, page, pageSize) {
-  const pages = Math.ceil(total / pageSize);
+function renderPagination(total, page, size) {
+  const pages = Math.ceil(total / size);
   const el = document.getElementById('pagination');
   if (pages <= 1) { el.innerHTML = ''; return; }
-  let html = `<button onclick="loadGames(${page - 1})" ${page === 1 ? 'disabled' : ''}>←</button>`;
-  const start = Math.max(1, page - 2), end = Math.min(pages, page + 2);
-  for (let p = start; p <= end; p++) {
-    html += `<button class="${p === page ? 'active' : ''}" onclick="loadGames(${p})">${p}</button>`;
-  }
-  html += `<button onclick="loadGames(${page + 1})" ${page === pages ? 'disabled' : ''}>→</button>`;
-  el.innerHTML = html;
+  let h = `<button onclick="loadGames(${page-1})" ${page===1?'disabled':''}>←</button>`;
+  const s = Math.max(1, page-2), e = Math.min(pages, page+2);
+  for (let p = s; p <= e; p++)
+    h += `<button class="${p===page?'active':''}" onclick="loadGames(${p})">${p}</button>`;
+  h += `<button onclick="loadGames(${page+1})" ${page===pages?'disabled':''}>→</button>`;
+  el.innerHTML = h;
+}
+
+// ── Sort / search ─────────────────────────────────────────────────────────────
+
+function setSort(btn) {
+  document.querySelectorAll('.sort-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentSort = btn.dataset.sort;
+  loadGames(1);
 }
 
 function onSearch() {
@@ -327,89 +627,52 @@ function onSearch() {
   searchTimer = setTimeout(() => loadGames(1), 300);
 }
 
-// ── Summary ───────────────────────────────────────────────────────────────────
-
-async function loadSummary() {
-  const res = await fetch('/api/summary');
-  const d = await res.json();
-
-  document.getElementById('statCards').innerHTML = `
-    <div class="stat-card">
-      <div class="label">Total Games</div>
-      <div class="value">${d.total_games}</div>
-    </div>
-    <div class="stat-card">
-      <div class="label">Achievements</div>
-      <div class="value">${d.total_earned.toLocaleString()}</div>
-      <div class="sub">of ${d.total_possible.toLocaleString()}</div>
-    </div>
-    <div class="stat-card">
-      <div class="label">Overall Completion</div>
-      <div class="value">${d.overall_pct}%</div>
-    </div>`;
-
-  document.getElementById('platformTable').innerHTML = `
-    <table>
-      <thead><tr><th>Platform</th><th>Games</th><th>Earned</th><th>Total</th><th>Completion</th></tr></thead>
-      <tbody>${d.by_platform.map(p => `
-        <tr>
-          <td>${platformLabel(p.platform)}</td>
-          <td>${p.games}</td>
-          <td>${(p.earned || 0).toLocaleString()}</td>
-          <td>${(p.possible || 0).toLocaleString()}</td>
-          <td>
-            ${p.pct}%
-            <div class="pct-bar-sm"><div class="fill" style="width:${p.pct}%"></div></div>
-          </td>
-        </tr>`).join('')}
-      </tbody>
-    </table>`;
-}
-
-// ── Status ────────────────────────────────────────────────────────────────────
-
-async function loadStatus() {
-  const res = await fetch('/api/status');
-  const d = await res.json();
-
-  document.getElementById('syncStatus').textContent = d.syncing ? '⟳ Syncing…' : '';
-  document.getElementById('syncBtn').disabled = d.syncing;
-
-  document.getElementById('accountCards').innerHTML = d.accounts.map(a => `
-    <div class="account-card">
-      <div class="platform">${platformLabel(a.platform)}</div>
-      <div class="name">${escHtml(a.display_name || a.external_id)}</div>
-      <div class="synced">Last synced: ${fmt(a.last_synced_at)}</div>
-    </div>`).join('');
-
-  document.getElementById('runList').innerHTML = d.recent_runs.map(r => `
-    <div class="run-row">
-      <span class="run-status ${r.status}">${r.status}</span>
-      <span>${platformLabel(r.platform)}</span>
-      <span>${fmt(r.started_at)}</span>
-      <span class="run-detail">${escHtml(r.detail || '')}</span>
-    </div>`).join('') || '<div class="empty">No sync runs yet.</div>';
-}
-
 // ── Sync ──────────────────────────────────────────────────────────────────────
 
 async function triggerSync() {
   const btn = document.getElementById('syncBtn');
+  const lbl = document.getElementById('syncLabel');
   btn.disabled = true;
-  document.getElementById('syncStatus').textContent = '⟳ Syncing…';
+  lbl.textContent = 'Syncing…';
   try {
-    await fetch('/api/sync', { method: 'POST' });
-  } catch (_) {}
+    const r = await fetch('/api/sync', { method: 'POST' });
+    if (r.status === 409) { lbl.textContent = 'Already syncing'; }
+    else { lbl.textContent = 'Sync started'; }
+  } catch(_) { lbl.textContent = 'Error'; }
+  setTimeout(() => { btn.disabled = false; lbl.textContent = 'Ready'; }, 4000);
 }
 
 // ── Util ──────────────────────────────────────────────────────────────────────
 
-function escHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+async function apiFetch(url) {
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    return await r.json();
+  } catch(_) { return null; }
 }
 
-// Init
-loadGames(1);
+function fmt(dt) {
+  if (!dt) return '—';
+  return new Date(dt).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+}
+
+function fmtTime(m) {
+  if (!m) return '—';
+  if (m < 60) return m + 'm';
+  const h = Math.floor(m/60), r = m%60;
+  return r ? `${h}h ${r}m` : `${h}h`;
+}
+
+function platLabel(p) {
+  if (p === 'steam') return 'Steam';
+  if (p === 'retroachievements') return 'RetroAchievements';
+  return p;
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 </script>
 </body>
 </html>
