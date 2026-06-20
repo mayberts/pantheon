@@ -1,0 +1,32 @@
+# Tier 2 deploy: pull a prebuilt image from GHCR instead of building on the box.
+# Replace <youruser> with your lowercase GitHub username/org.
+# First run on the host (once), to allow pulling a private package:
+#   echo <PAT_with_read:packages> | docker login ghcr.io -u <youruser> --password-stdin
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: pantheon
+      POSTGRES_PASSWORD: pantheon
+      POSTGRES_DB: pantheon
+    volumes:
+      - /mnt/user/appdata/pantheon/pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pantheon"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  app:
+    image: ghcr.io/<youruser>/pantheon:latest
+    pull_policy: always
+    env_file: /mnt/user/appdata/pantheon/.env
+    environment:
+      DATABASE_URL: postgresql://pantheon:pantheon@db:5432/pantheon
+    ports:
+      - "8744:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped

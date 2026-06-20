@@ -1,0 +1,34 @@
+# Default compose: build from source with a named volume.
+# Runs anywhere (Docker Desktop on Windows, Linux, etc.):
+#   docker compose up -d --build   ->  http://localhost:8744
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: pantheon
+      POSTGRES_PASSWORD: pantheon
+      POSTGRES_DB: pantheon
+    volumes:
+      - pantheon-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pantheon"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  app:
+    build: .
+    image: pantheon:latest
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://pantheon:pantheon@db:5432/pantheon
+    ports:
+      - "8744:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pantheon-db:

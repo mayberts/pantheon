@@ -1,0 +1,21 @@
+# secrets & local config
+.env
+*.env
+!.env.example
+
+# database / runtime data
+pgdata/
+*.sqlite
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# editor / os
+.DS_Store
+*.swp
+
+# local artifacts
+*.zip
