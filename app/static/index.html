@@ -6,6 +6,7 @@
 <title>Pantheon // Hall of Records</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <style>
   :root {
     --bg:       #090c13;
@@ -45,6 +46,12 @@
   .btn-sync { background: var(--cyan); color: #000; border: none; padding: 8px 20px; font-family: inherit; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; transition: background 0.15s; }
   .btn-sync:hover { background: #00eeff; }
   .btn-sync:disabled { background: var(--muted); cursor: default; }
+
+  /* ── Header nav ── */
+  .header-nav { display: flex; gap: 4px; }
+  .nav-btn { background: none; border: none; color: var(--muted2); font-family: inherit; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; padding: 6px 14px; cursor: pointer; border-bottom: 2px solid transparent; transition: color 0.12s; }
+  .nav-btn:hover { color: var(--text); }
+  .nav-btn.active { color: var(--cyan); border-bottom-color: var(--cyan); }
 
   /* ── Pages ── */
   .page { display: none; }
@@ -249,6 +256,35 @@
 
   .ach-loading-row { padding: 32px; text-align: center; color: var(--muted2); font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; }
 
+  /* ── Statistics page ── */
+  .stats-page-grid { display: grid; grid-template-columns: 260px 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .stats-card { background: var(--bg2); border: 1px solid var(--border); padding: 20px 22px; }
+  .stats-card-title { font-size: 1rem; font-weight: 700; letter-spacing: 0.04em; margin-bottom: 4px; }
+  .stats-card-sub { font-size: 0.7rem; color: var(--muted2); letter-spacing: 0.08em; margin-bottom: 16px; }
+
+  .general-row { display: flex; align-items: baseline; gap: 10px; padding: 5px 0; border-bottom: 1px solid var(--border); }
+  .general-row:last-child { border-bottom: none; }
+  .general-val { font-size: 0.95rem; font-weight: 700; font-family: 'Share Tech Mono', monospace; min-width: 60px; text-align: right; flex-shrink: 0; }
+  .general-val.cyan { color: var(--cyan); }
+  .general-val.amber { color: var(--amber); }
+  .general-val.green { color: var(--green); }
+  .general-lbl { font-size: 0.72rem; color: var(--muted2); letter-spacing: 0.05em; }
+
+  .rarity-legend { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+  .rarity-row { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; }
+  .rarity-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .rarity-name { flex: 1; color: var(--muted2); }
+  .rarity-range { font-size: 0.68rem; color: var(--muted); }
+  .rarity-count { font-weight: 700; font-family: 'Share Tech Mono', monospace; }
+
+  .chart-wrap { position: relative; }
+  .chart-wrap canvas { max-height: 220px; }
+  .donut-wrap { display: flex; align-items: center; gap: 20px; }
+  .donut-canvas { width: 160px !important; height: 160px !important; flex-shrink: 0; }
+
+  .stats-full-card { background: var(--bg2); border: 1px solid var(--border); padding: 20px 22px; margin-bottom: 16px; }
+
+  @media (max-width: 900px) { .stats-page-grid { grid-template-columns: 1fr 1fr; } }
   @media (max-width: 640px) {
     header { padding: 14px 16px; }
     main { padding: 20px 16px 40px; }
@@ -256,6 +292,7 @@
     .search-box { width: 100%; }
     .game-hero { flex-direction: column; }
     .game-hero-cover { width: 100%; }
+    .stats-page-grid { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -266,6 +303,10 @@
     <div class="brand-sub">Pantheon // Hall of Records</div>
     <div class="brand-title">Cross-Platform Achievements</div>
   </div>
+  <nav class="header-nav">
+    <button class="nav-btn active" id="nav-library" onclick="showLibrary()">Games</button>
+    <button class="nav-btn" id="nav-stats" onclick="showStats()">Statistics</button>
+  </nav>
   <div class="header-right">
     <span class="sync-label" id="syncLabel">Ready</span>
     <button class="btn-sync" id="syncBtn" onclick="triggerSync()">Sync Now</button>
@@ -322,6 +363,54 @@
 </main>
 </div>
 
+<!-- ══ STATISTICS PAGE ══ -->
+<div class="page" id="page-stats">
+<main>
+  <div class="section-header" style="margin-top:0">
+    <div class="section-label">General Statistics</div>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="stats-page-grid">
+    <!-- General -->
+    <div class="stats-card">
+      <div class="stats-card-title">General Statistics</div>
+      <div id="generalStats"><div class="ach-loading-row">Loading…</div></div>
+    </div>
+
+    <!-- Rarity donut -->
+    <div class="stats-card">
+      <div class="stats-card-title">Achievements By Rarity</div>
+      <div class="stats-card-sub">Breakdown by global unlock percentage</div>
+      <div class="donut-wrap">
+        <canvas class="donut-canvas" id="rarityChart"></canvas>
+        <div class="rarity-legend" id="rarityLegend"></div>
+      </div>
+    </div>
+
+    <!-- Completion bar chart -->
+    <div class="stats-card">
+      <div class="stats-card-title">Game Completion (%)</div>
+      <div class="stats-card-sub">Games by completion bracket</div>
+      <div class="chart-wrap"><canvas id="completionChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Platform bar -->
+  <div class="stats-full-card">
+    <div class="stats-card-title">Achievements By Platform</div>
+    <div class="stats-card-sub">Achievements breakdown by platform</div>
+    <div class="chart-wrap" style="max-width:600px;margin-top:12px"><canvas id="platformChart"></canvas></div>
+  </div>
+
+  <!-- Progression line -->
+  <div class="stats-full-card">
+    <div class="stats-card-title">Overall Achievements Progression</div>
+    <div class="chart-wrap" style="margin-top:12px"><canvas id="progressionChart"></canvas></div>
+  </div>
+</main>
+</div>
+
 <!-- ══ GAME DETAIL PAGE ══ -->
 <div class="page" id="page-game">
 <main>
@@ -350,17 +439,170 @@ let searchTimer = null;
 
 // ── Router ────────────────────────────────────────────────────────────────────
 
-function showLibrary() {
-  document.getElementById('page-library').classList.add('active');
-  document.getElementById('page-game').classList.remove('active');
+let charts = {};
+
+function setPage(name) {
+  ['library','stats','game'].forEach(p => document.getElementById('page-'+p).classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  ['library','stats'].forEach(n => document.getElementById('nav-'+n)?.classList.remove('active'));
+  if (name === 'library') document.getElementById('nav-library').classList.add('active');
+  if (name === 'stats')   document.getElementById('nav-stats').classList.add('active');
   window.scrollTo(0, 0);
 }
 
+function showLibrary() { setPage('library'); }
+
+function showStats() {
+  setPage('stats');
+  loadStats();
+}
+
+let statsCacheLoaded = false;
+async function loadStats() {
+  if (statsCacheLoaded) return;
+  const d = await apiFetch('/api/statistics');
+  if (!d) return;
+  statsCacheLoaded = true;
+
+  // General stats
+  const g = d.general;
+  document.getElementById('generalStats').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:0">
+      ${genRow(g.unlocked, 'Unlocked Achievements', 'cyan')}
+      ${genRow(g.locked, 'Locked Achievements', '')}
+      ${genRow(g.daily_max, 'Daily Maximum', '')}
+      ${genRow(g.monthly_max, 'Monthly Maximum', '')}
+      <div style="height:8px"></div>
+      ${genRow(g.games_total, 'Games in Library', '')}
+      ${genRow(g.mastered, 'Mastered Games', 'amber')}
+      ${genRow(g.finished, 'Finished Games', 'green')}
+      <div style="height:8px"></div>
+      ${genRow(g.avg_completion + '%', 'Average Game Completion', 'cyan')}
+      ${genRow(g.absolute_completion + '%', 'Absolute Game Completion', '')}
+    </div>`;
+
+  // Rarity donut
+  const rarityColors = {
+    'Legendary': '#7c3aed',
+    'Epic':      '#4f6ef7',
+    'Rare':      '#f0a020',
+    'Uncommon':  '#00e87a',
+    'Common':    '#6b7f99',
+  };
+  const rarityOrder = ['Legendary','Epic','Rare','Uncommon','Common'];
+  const rarityRanges = { Legendary:'0–1%', Epic:'1–5%', Rare:'5–20%', Uncommon:'20–50%', Common:'50–100%' };
+  const rarityMap = Object.fromEntries(d.rarity.map(r => [r.tier, r.cnt]));
+
+  destroyChart('rarityChart');
+  charts['rarityChart'] = new Chart(document.getElementById('rarityChart'), {
+    type: 'doughnut',
+    data: {
+      labels: rarityOrder,
+      datasets: [{
+        data: rarityOrder.map(t => rarityMap[t] || 0),
+        backgroundColor: rarityOrder.map(t => rarityColors[t]),
+        borderWidth: 0,
+        hoverOffset: 6,
+      }]
+    },
+    options: {
+      cutout: '65%',
+      plugins: { legend: { display: false }, tooltip: { callbacks: {
+        label: ctx => ` ${ctx.label}: ${ctx.parsed.toLocaleString()}`
+      }}},
+    }
+  });
+
+  document.getElementById('rarityLegend').innerHTML = rarityOrder.map(t => `
+    <div class="rarity-row">
+      <div class="rarity-dot" style="background:${rarityColors[t]}"></div>
+      <span class="rarity-count">${(rarityMap[t]||0).toLocaleString()}</span>
+      <span class="rarity-name">${t}</span>
+      <span class="rarity-range">${rarityRanges[t]}</span>
+    </div>`).join('');
+
+  // Completion dist bar chart
+  destroyChart('completionChart');
+  charts['completionChart'] = new Chart(document.getElementById('completionChart'), {
+    type: 'bar',
+    data: {
+      labels: d.completion_dist.map(r => r.bracket),
+      datasets: [{
+        data: d.completion_dist.map(r => r.cnt),
+        backgroundColor: '#4f6ef7cc',
+        borderColor: '#4f6ef7',
+        borderWidth: 1,
+        borderRadius: 2,
+      }]
+    },
+    options: chartOpts({ showLabels: true }),
+  });
+
+  // Platform bar chart
+  destroyChart('platformChart');
+  charts['platformChart'] = new Chart(document.getElementById('platformChart'), {
+    type: 'bar',
+    data: {
+      labels: d.platforms.map(p => platLabel(p.platform)),
+      datasets: [{
+        data: d.platforms.map(p => p.earned),
+        backgroundColor: '#00a8b8cc',
+        borderColor: '#00d4e8',
+        borderWidth: 1,
+        borderRadius: 2,
+      }]
+    },
+    options: chartOpts({ showLabels: true }),
+  });
+
+  // Progression line chart
+  destroyChart('progressionChart');
+  charts['progressionChart'] = new Chart(document.getElementById('progressionChart'), {
+    type: 'line',
+    data: {
+      labels: d.progression.map(r => r.month),
+      datasets: [{
+        data: d.progression.map(r => r.total),
+        borderColor: '#4f6ef7',
+        backgroundColor: '#4f6ef715',
+        borderWidth: 2,
+        pointRadius: 0,
+        fill: true,
+        tension: 0.3,
+      }]
+    },
+    options: chartOpts({ showLabels: false }),
+  });
+}
+
+function genRow(val, label, cls) {
+  return `<div class="general-row">
+    <div class="general-val ${cls}">${typeof val === 'number' ? val.toLocaleString() : val}</div>
+    <div class="general-lbl">${label}</div>
+  </div>`;
+}
+
+function chartOpts({ showLabels }) {
+  return {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y?.toLocaleString() ?? ctx.parsed.toLocaleString()}` } },
+    },
+    scales: {
+      x: { ticks: { color: '#6b7f99', font: { family: 'Rajdhani', size: 11 } }, grid: { color: '#1e2a3a' } },
+      y: { ticks: { color: '#6b7f99', font: { family: 'Rajdhani', size: 11 } }, grid: { color: '#1e2a3a' } },
+    },
+  };
+}
+
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
 async function showGame(id) {
-  document.getElementById('page-library').classList.remove('active');
-  document.getElementById('page-game').classList.add('active');
+  setPage('game');
   document.getElementById('bc-game').textContent = '…';
-  window.scrollTo(0, 0);
   await loadGameDetail(id);
 }
 
