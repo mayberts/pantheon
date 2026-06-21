@@ -117,6 +117,13 @@ async def upsert_achievement(conn, platform_game_id: int, platform_ach_id: str,
     return row["id"]
 
 
+async def update_hltb(conn, platform_game_id: int, main: float | None, extra: float | None, complete: float | None) -> None:
+    await conn.execute(
+        "UPDATE platform_games SET hltb_main=%s, hltb_extra=%s, hltb_complete=%s WHERE id=%s",
+        (main, extra, complete, platform_game_id),
+    )
+
+
 async def upsert_user_achievement(conn, linked_account_id: int, achievement_id: int,
                                    unlocked: bool, unlocked_at=None) -> None:
     await conn.execute(
