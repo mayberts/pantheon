@@ -222,10 +222,27 @@
   .hero-pct-fill.full { background: var(--cyan); }
   .hero-pct-label { font-size: 0.7rem; color: var(--muted2); letter-spacing: 0.08em; margin-top: 4px; }
 
+  /* HLTB + rarity summary row */
+  .hero-hltb { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .hltb-item { text-align: center; }
+  .hltb-item .val { font-size: 1rem; font-weight: 700; font-family: 'Share Tech Mono', monospace; color: var(--amber); }
+  .hltb-item .lbl { font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted2); margin-top: 2px; }
+
+  .hero-rarity { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .rarity-chip { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 8px; border: 1px solid; }
+  .rarity-chip.Legendary { color: #ffd700; border-color: #ffd700; }
+  .rarity-chip.Epic      { color: #c060ff; border-color: #c060ff; }
+  .rarity-chip.Rare      { color: #4db8ff; border-color: #4db8ff; }
+  .rarity-chip.Uncommon  { color: #50e890; border-color: #50e890; }
+  .rarity-chip.Common    { color: var(--muted2); border-color: var(--muted); }
+
   /* Achievement list */
-  .ach-tab-bar { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 0; }
-  .ach-tab { background: none; border: none; border-bottom: 2px solid transparent; color: var(--muted2); font-family: inherit; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; padding: 10px 20px; cursor: pointer; margin-bottom: -1px; }
-  .ach-tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+  .ach-controls { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); background: var(--bg2); border: 1px solid var(--border); border-bottom: none; padding: 10px 16px; flex-wrap: wrap; }
+  .ach-sort-btn { background: none; border: none; border-bottom: 2px solid transparent; color: var(--muted2); font-family: inherit; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; padding: 4px 10px; cursor: pointer; }
+  .ach-sort-btn.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+  .ach-controls-sep { color: var(--border2); margin: 0 4px; }
+  .ach-filter-btn { background: none; border: 1px solid var(--border); color: var(--muted2); font-family: inherit; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 10px; cursor: pointer; transition: all 0.15s; }
+  .ach-filter-btn.active { background: var(--cyan); border-color: var(--cyan); color: #000; }
 
   .ach-table { background: var(--bg2); border: 1px solid var(--border); border-top: none; }
 
@@ -424,8 +441,13 @@
     <div class="ach-loading-row">Loading…</div>
   </div>
 
-  <div class="ach-tab-bar">
-    <button class="ach-tab active">Achievements</button>
+  <div class="ach-controls" id="achControls">
+    <button class="ach-sort-btn active" onclick="setAchSort('unlocked')">Unlocked First</button>
+    <button class="ach-sort-btn" onclick="setAchSort('rarity')">Rarest First</button>
+    <button class="ach-sort-btn" onclick="setAchSort('name')">Name</button>
+    <span class="ach-controls-sep">|</span>
+    <button class="ach-filter-btn" id="filterUnlocked" onclick="toggleAchFilter('unlocked')">Unlocked</button>
+    <button class="ach-filter-btn" id="filterLocked" onclick="toggleAchFilter('locked')">Locked</button>
   </div>
   <div class="ach-table" id="achTable">
     <div class="ach-loading-row">Loading achievements…</div>
@@ -727,7 +749,49 @@ function onSearch() {
 
 // ── Game detail ───────────────────────────────────────────────────────────────
 
+let _allAchs = [];
+let _achSort = 'unlocked';
+let _achFilter = null; // null = all, 'unlocked', 'locked'
+
+function setAchSort(s) {
+  _achSort = s;
+  document.querySelectorAll('.ach-sort-btn').forEach(b => b.classList.toggle('active', b.textContent.toLowerCase().startsWith(s === 'unlocked' ? 'unlock' : s)));
+  renderAchs();
+}
+
+function toggleAchFilter(f) {
+  _achFilter = _achFilter === f ? null : f;
+  document.getElementById('filterUnlocked').classList.toggle('active', _achFilter === 'unlocked');
+  document.getElementById('filterLocked').classList.toggle('active', _achFilter === 'locked');
+  renderAchs();
+}
+
+function renderAchs() {
+  let list = [..._allAchs];
+  if (_achFilter === 'unlocked') list = list.filter(a => a.unlocked);
+  if (_achFilter === 'locked')   list = list.filter(a => !a.unlocked);
+  if (_achSort === 'rarity')  list.sort((a, b) => (a.rarity_pct ?? 101) - (b.rarity_pct ?? 101));
+  if (_achSort === 'name')    list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  if (_achSort === 'unlocked') list.sort((a, b) => (b.unlocked - a.unlocked) || ((b.unlocked_at || '') > (a.unlocked_at || '') ? 1 : -1));
+  document.getElementById('achTable').innerHTML = list.length
+    ? list.map(achItemHTML).join('')
+    : '<div class="ach-loading-row">No achievements match filter.</div>';
+}
+
+function fmtHLTB(h) {
+  if (!h) return null;
+  const n = parseFloat(h);
+  return n % 1 === 0 ? n + 'h' : n.toFixed(1) + 'h';
+}
+
 async function loadGameDetail(id) {
+  _allAchs = [];
+  _achSort = 'unlocked';
+  _achFilter = null;
+  document.getElementById('filterUnlocked').classList.remove('active');
+  document.getElementById('filterLocked').classList.remove('active');
+  document.querySelectorAll('.ach-sort-btn').forEach((b,i) => b.classList.toggle('active', i===0));
+
   document.getElementById('gameHero').innerHTML = '<div class="ach-loading-row">Loading…</div>';
   document.getElementById('achTable').innerHTML = '<div class="ach-loading-row">Loading achievements…</div>';
 
@@ -757,6 +821,25 @@ async function loadGameDetail(id) {
     ? `<span class="plat-badge"><img src="https://store.steampowered.com/favicon.ico" alt="">Steam</span>`
     : `<span class="plat-badge ra">RetroAchievements</span>`;
 
+  const hltbMain     = fmtHLTB(game.hltb_main);
+  const hltbExtra    = fmtHLTB(game.hltb_extra);
+  const hltbComplete = fmtHLTB(game.hltb_complete);
+  const hltbHtml = (hltbMain || hltbExtra || hltbComplete) ? `
+    <div class="hero-hltb">
+      ${hltbMain     ? `<div class="hltb-item"><div class="val">${hltbMain}</div><div class="lbl">Main Story</div></div>` : ''}
+      ${hltbExtra    ? `<div class="hltb-item"><div class="val">${hltbExtra}</div><div class="lbl">Main + Extras</div></div>` : ''}
+      ${hltbComplete ? `<div class="hltb-item"><div class="val">${hltbComplete}</div><div class="lbl">Completionist</div></div>` : ''}
+    </div>` : '';
+
+  const rarityChips = (game.rarity_summary || []).map(r =>
+    `<span class="rarity-chip ${r.tier}">${r.cnt} ${r.tier}</span>`
+  ).join('');
+  const rarityHtml = rarityChips ? `<div class="hero-rarity">${rarityChips}</div>` : '';
+
+  const pointsHtml = game.total_points
+    ? `<div class="hero-stat"><div class="val" style="color:var(--amber)">${game.total_points}</div><div class="lbl">Points Earned</div></div>`
+    : '';
+
   document.getElementById('gameHero').innerHTML = `
     ${cover}
     <div class="game-hero-info">
@@ -775,9 +858,12 @@ async function loadGameDetail(id) {
           <div class="val">${fmt(game.last_played_at)}</div>
           <div class="lbl">Last Played</div>
         </div>
+        ${pointsHtml}
       </div>
       <div class="hero-pct-track"><div class="hero-pct-fill ${full?'full':''}" style="width:${pct}%"></div></div>
       <div class="hero-pct-label">${pct}% complete</div>
+      ${rarityHtml}
+      ${hltbHtml}
     </div>`;
 
   if (!achs || !achs.length) {
@@ -785,7 +871,8 @@ async function loadGameDetail(id) {
     return;
   }
 
-  document.getElementById('achTable').innerHTML = achs.map(achItemHTML).join('');
+  _allAchs = achs;
+  renderAchs();
 }
 
 function achItemHTML(a) {

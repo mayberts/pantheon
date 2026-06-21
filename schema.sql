@@ -28,8 +28,15 @@ CREATE TABLE IF NOT EXISTS platform_games (
     icon_url            TEXT,
     igdb_id             BIGINT REFERENCES igdb_games(id),
     total_achievements  INT DEFAULT 0,
+    hltb_main           NUMERIC,             -- How Long To Beat: main story hours
+    hltb_extra          NUMERIC,             -- main + extras hours
+    hltb_complete       NUMERIC,             -- completionist hours
     UNIQUE (platform, platform_app_id)
 );
+-- safe migrations for existing deployments
+ALTER TABLE platform_games ADD COLUMN IF NOT EXISTS hltb_main     NUMERIC;
+ALTER TABLE platform_games ADD COLUMN IF NOT EXISTS hltb_extra    NUMERIC;
+ALTER TABLE platform_games ADD COLUMN IF NOT EXISTS hltb_complete NUMERIC;
 
 CREATE TABLE IF NOT EXISTS achievements (
     id                  SERIAL PRIMARY KEY,

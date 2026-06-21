@@ -17,6 +17,40 @@ _sync_lock = asyncio.Lock()
 _scheduler = AsyncIOScheduler()
 
 
+async def _enrich_hltb() -> None:
+    """Fetch How Long To Beat times for any games that don't have them yet."""
+    try:
+        from howlongtobeatpy import HowLongToBeat
+    except ImportError:
+        log.warning("howlongtobeatpy not installed; skipping HLTB enrichment")
+        return
+
+    pool = await db.get_pool()
+    async with pool.connection() as conn:
+        rows = await _fetch(
+            conn,
+            "SELECT id, name FROM platform_games WHERE hltb_main IS NULL AND total_achievements > 0",
+        )
+
+    hltb = HowLongToBeat()
+    for row in rows:
+        try:
+            results = await hltb.async_search(row["name"])
+            if not results:
+                continue
+            best = max(results, key=lambda r: r.similarity)
+            main = best.main_story or None
+            extra = best.main_extra or None
+            complete = best.completionist or None
+            async with pool.connection() as conn:
+                await db.update_hltb(conn, row["id"], main, extra, complete)
+            log.info("HLTB %s: main=%.1fh extra=%.1fh complete=%.1fh",
+                     row["name"], main or 0, extra or 0, complete or 0)
+            await asyncio.sleep(config.REQUEST_DELAY_SECONDS)
+        except Exception:
+            log.exception("HLTB lookup failed for %s", row["name"])
+
+
 async def run_sync() -> None:
     if _sync_lock.locked():
         log.info("Sync already running, skipping")
@@ -51,6 +85,7 @@ async def run_sync() -> None:
                             "UPDATE sync_runs SET finished_at = now(), status = 'error', detail = %s WHERE id = %s",
                             (str(exc), run_id),
                         )
+        asyncio.create_task(_enrich_hltb())
 
 
 @asynccontextmanager
@@ -207,6 +242,9 @@ async def game_detail(platform_game_id: int):
                 pg.platform_app_id,
                 pg.name,
                 pg.icon_url,
+                pg.hltb_main,
+                pg.hltb_extra,
+                pg.hltb_complete,
                 ug.playtime_minutes,
                 ug.earned_achievements,
                 ug.total_achievements,
@@ -218,9 +256,45 @@ async def game_detail(platform_game_id: int):
             """,
             platform_game_id,
         )
+        rarity_summary = await _fetch(
+            conn,
+            """
+            SELECT tier, COUNT(*) AS cnt FROM (
+                SELECT CASE
+                    WHEN a.rarity_pct <= 1  THEN 'Legendary'
+                    WHEN a.rarity_pct <= 5  THEN 'Epic'
+                    WHEN a.rarity_pct <= 20 THEN 'Rare'
+                    WHEN a.rarity_pct <= 50 THEN 'Uncommon'
+                    ELSE 'Common'
+                END AS tier
+                FROM user_achievements ua
+                JOIN achievements a ON a.id = ua.achievement_id
+                WHERE a.platform_game_id = %s AND ua.unlocked = true AND a.rarity_pct IS NOT NULL
+            ) sub GROUP BY tier ORDER BY MIN(
+                CASE tier
+                    WHEN 'Legendary' THEN 1 WHEN 'Epic' THEN 2
+                    WHEN 'Rare' THEN 3 WHEN 'Uncommon' THEN 4 ELSE 5
+                END
+            )
+            """,
+            platform_game_id,
+        )
+        points_row = await _fetchrow(
+            conn,
+            """
+            SELECT SUM(a.points) AS total_points
+            FROM user_achievements ua
+            JOIN achievements a ON a.id = ua.achievement_id
+            WHERE a.platform_game_id = %s AND ua.unlocked = true AND a.points IS NOT NULL
+            """,
+            platform_game_id,
+        )
     if not row:
         raise HTTPException(status_code=404, detail="Game not found")
-    return dict(row)
+    result = dict(row)
+    result["rarity_summary"] = [dict(r) for r in rarity_summary]
+    result["total_points"] = int(points_row["total_points"] or 0) if points_row else 0
+    return result
 
 
 @app.get("/api/statistics")
