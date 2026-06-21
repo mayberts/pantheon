@@ -98,6 +98,7 @@ async def lifespan(app: FastAPI):
             await db.upsert_linked_account(conn, account["platform"], account["external_id"])
 
     asyncio.create_task(run_sync())
+    asyncio.create_task(_enrich_hltb())
 
     _scheduler.add_job(run_sync, "interval", hours=config.SYNC_INTERVAL_HOURS)
     _scheduler.start()
