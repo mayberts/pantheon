@@ -157,6 +157,7 @@
     color: #c7d5e0;
   }
   .plat-badge.ra { background: #1a1a2e; border-color: #333; color: var(--muted2); }
+  .plat-badge.xbox { background: #0e3d0e; border-color: #107c10; color: #4ec94e; }
   .plat-badge img { width: 12px; height: 12px; }
 
   /* ── Pagination ── */
@@ -371,6 +372,7 @@
       <option value="">All Platforms</option>
       <option value="steam">Steam</option>
       <option value="retroachievements">RetroAchievements</option>
+      <option value="xbox">Xbox</option>
     </select>
     <span class="lib-count" id="libCount"></span>
   </div>
@@ -715,6 +717,7 @@ function gameCardHTML(g) {
 
   const badge = g.platform === 'steam'
     ? `<span class="plat-badge"><img src="https://store.steampowered.com/favicon.ico" alt="">Steam</span>`
+    : g.platform === 'xbox' ? `<span class="plat-badge xbox">Xbox</span>`
     : `<span class="plat-badge ra">RetroAchievements</span>`;
 
   return `
@@ -832,6 +835,7 @@ async function loadGameDetail(id) {
 
   const badge = game.platform === 'steam'
     ? `<span class="plat-badge"><img src="https://store.steampowered.com/favicon.ico" alt="">Steam</span>`
+    : g.platform === 'xbox' ? `<span class="plat-badge xbox">Xbox</span>`
     : `<span class="plat-badge ra">RetroAchievements</span>`;
 
   const hltbMain     = fmtHLTB(game.hltb_main);
@@ -945,6 +949,7 @@ function fmtTime(m) {
 function platLabel(p) {
   if (p === 'steam') return 'Steam';
   if (p === 'retroachievements') return 'RetroAchievements';
+  if (p === 'xbox') return 'Xbox';
   return p;
 }
 
