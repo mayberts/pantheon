@@ -11,6 +11,7 @@ from app.db import _fetch, _fetchrow
 from app.platforms import PLATFORMS
 
 logging.basicConfig(level=logging.INFO)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 log = logging.getLogger(__name__)
 
 _sync_lock = asyncio.Lock()
