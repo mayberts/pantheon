@@ -250,7 +250,7 @@ async def statistics():
             SELECT COUNT(*) AS cnt
             FROM user_achievements
             WHERE unlocked = true AND unlocked_at IS NOT NULL
-            GROUP BY DATE(unlocked_at)
+            GROUP BY unlocked_at::date
             ORDER BY cnt DESC LIMIT 1
             """,
         )

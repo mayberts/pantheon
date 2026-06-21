@@ -461,7 +461,10 @@ let statsCacheLoaded = false;
 async function loadStats() {
   if (statsCacheLoaded) return;
   const d = await apiFetch('/api/statistics');
-  if (!d) return;
+  if (!d) {
+    document.getElementById('generalStats').innerHTML = '<div class="ach-loading-row" style="color:#e83c3c">Failed to load — check console for details.</div>';
+    return;
+  }
   statsCacheLoaded = true;
 
   // General stats
@@ -820,8 +823,11 @@ async function triggerSync() {
 // ── Util ──────────────────────────────────────────────────────────────────────
 
 async function apiFetch(url) {
-  try { const r = await fetch(url); if (!r.ok) return null; return await r.json(); }
-  catch(_) { return null; }
+  try {
+    const r = await fetch(url);
+    if (!r.ok) { console.error(`API ${url} → ${r.status}`, await r.text()); return null; }
+    return await r.json();
+  } catch(e) { console.error(`API ${url}`, e); return null; }
 }
 
 function fmt(dt) {
