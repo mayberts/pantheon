@@ -194,6 +194,35 @@ async def games(
     }
 
 
+@app.get("/api/games/{platform_game_id}")
+async def game_detail(platform_game_id: int):
+    pool = await db.get_pool()
+    async with pool.connection() as conn:
+        row = await _fetchrow(
+            conn,
+            """
+            SELECT
+                pg.id               AS platform_game_id,
+                pg.platform,
+                pg.platform_app_id,
+                pg.name,
+                pg.icon_url,
+                ug.playtime_minutes,
+                ug.earned_achievements,
+                ug.total_achievements,
+                ug.completion_pct,
+                ug.last_played_at
+            FROM user_games ug
+            JOIN platform_games pg ON pg.id = ug.platform_game_id
+            WHERE pg.id = %s
+            """,
+            platform_game_id,
+        )
+    if not row:
+        raise HTTPException(status_code=404, detail="Game not found")
+    return dict(row)
+
+
 @app.get("/api/games/{platform_game_id}/achievements")
 async def game_achievements(platform_game_id: int):
     pool = await db.get_pool()

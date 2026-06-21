@@ -20,19 +20,9 @@
     --muted:    #4a5c72;
     --muted2:   #6b7f99;
     --green:    #00e87a;
-    --red:      #e83c3c;
   }
-
   * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Rajdhani', 'Segoe UI', sans-serif;
-    font-weight: 500;
-    min-height: 100vh;
-    font-size: 15px;
-  }
+  body { background: var(--bg); color: var(--text); font-family: 'Rajdhani', 'Segoe UI', sans-serif; font-weight: 500; min-height: 100vh; }
 
   /* ── Header ── */
   header {
@@ -43,128 +33,45 @@
     align-items: flex-end;
     justify-content: space-between;
     gap: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
   }
-  .brand { line-height: 1; }
-  .brand-sub {
-    font-size: 0.72rem;
-    letter-spacing: 0.2em;
-    color: var(--cyan);
-    text-transform: uppercase;
-    font-weight: 600;
-    margin-bottom: 4px;
-  }
-  .brand-title {
-    font-size: 1.6rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    color: var(--text);
-  }
+  .brand { line-height: 1; cursor: pointer; }
+  .brand-sub { font-size: 0.72rem; letter-spacing: 0.2em; color: var(--cyan); text-transform: uppercase; font-weight: 600; margin-bottom: 4px; }
+  .brand-title { font-size: 1.6rem; font-weight: 700; letter-spacing: 0.04em; }
   .header-right { display: flex; align-items: center; gap: 16px; }
   .sync-label { font-size: 0.75rem; color: var(--muted2); letter-spacing: 0.08em; text-transform: uppercase; }
-
-  .btn-sync {
-    background: var(--cyan);
-    color: #000;
-    border: none;
-    padding: 8px 20px;
-    font-family: inherit;
-    font-size: 0.8rem;
-    font-weight: 700;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: background 0.15s;
-  }
+  .btn-sync { background: var(--cyan); color: #000; border: none; padding: 8px 20px; font-family: inherit; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; transition: background 0.15s; }
   .btn-sync:hover { background: #00eeff; }
   .btn-sync:disabled { background: var(--muted); cursor: default; }
+
+  /* ── Pages ── */
+  .page { display: none; }
+  .page.active { display: block; }
 
   /* ── Main layout ── */
   main { max-width: 1200px; margin: 0 auto; padding: 28px 32px 60px; }
 
   /* ── Section header ── */
-  .section-header {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 16px;
-    margin-top: 32px;
-  }
-  .section-label {
-    font-size: 0.7rem;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--muted2);
-    font-weight: 600;
-    white-space: nowrap;
-  }
-  .section-line {
-    flex: 1;
-    height: 1px;
-    background: var(--border);
-  }
+  .section-header { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; margin-top: 32px; }
+  .section-label { font-size: 0.7rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted2); font-weight: 600; white-space: nowrap; }
+  .section-line { flex: 1; height: 1px; background: var(--border); }
 
   /* ── Stats bar ── */
-  .stats-bar {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--cyan);
-    padding: 20px 28px;
-    display: flex;
-    align-items: center;
-    gap: 48px;
-    flex-wrap: wrap;
-  }
-  .stat-main .val {
-    font-size: 2.8rem;
-    font-weight: 700;
-    color: var(--cyan);
-    line-height: 1;
-    font-family: 'Share Tech Mono', monospace;
-  }
+  .stats-bar { background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--cyan); padding: 20px 28px; display: flex; align-items: center; gap: 48px; flex-wrap: wrap; }
+  .stat-main .val { font-size: 2.8rem; font-weight: 700; color: var(--cyan); line-height: 1; font-family: 'Share Tech Mono', monospace; }
   .stat-main .val span { font-size: 1.4rem; }
-  .stat-main .lbl {
-    font-size: 0.65rem;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--muted2);
-    margin-top: 4px;
-  }
+  .stat-main .lbl { font-size: 0.65rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted2); margin-top: 4px; }
   .stat-divider { width: 1px; height: 48px; background: var(--border2); }
-  .stat .val {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--text);
-    font-family: 'Share Tech Mono', monospace;
-  }
+  .stat .val { font-size: 1.5rem; font-weight: 700; font-family: 'Share Tech Mono', monospace; }
   .stat.amber .val { color: var(--amber); }
-  .stat .lbl {
-    font-size: 0.62rem;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: var(--muted2);
-    margin-top: 2px;
-  }
+  .stat .lbl { font-size: 0.62rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted2); margin-top: 2px; }
 
   /* ── Platforms ── */
-  .platforms-grid {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-  .platform-card {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    padding: 14px 20px;
-    min-width: 180px;
-  }
-  .platform-card .p-name {
-    font-size: 0.65rem;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--cyan);
-    font-weight: 600;
-    margin-bottom: 8px;
-  }
+  .platforms-grid { display: flex; gap: 12px; flex-wrap: wrap; }
+  .platform-card { background: var(--bg2); border: 1px solid var(--border); padding: 14px 20px; min-width: 180px; }
+  .platform-card .p-name { font-size: 0.65rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--cyan); font-weight: 600; margin-bottom: 8px; }
   .platform-card .p-stats { display: flex; gap: 20px; }
   .platform-card .p-stat .val { font-size: 1.1rem; font-weight: 700; }
   .platform-card .p-stat .lbl { font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted2); }
@@ -172,226 +79,190 @@
   .p-bar .fill { height: 100%; background: var(--cyan-dim); }
 
   /* ── Library controls ── */
-  .library-controls { display: flex; align-items: center; gap: 0; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+  .library-controls { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
   .sort-tabs { display: flex; border: 1px solid var(--border); }
-  .sort-tab {
-    background: none;
-    border: none;
-    border-right: 1px solid var(--border);
-    color: var(--muted2);
-    font-family: inherit;
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    padding: 7px 16px;
-    cursor: pointer;
-    transition: background 0.12s, color 0.12s;
-  }
+  .sort-tab { background: none; border: none; border-right: 1px solid var(--border); color: var(--muted2); font-family: inherit; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; padding: 7px 16px; cursor: pointer; transition: background 0.12s, color 0.12s; }
   .sort-tab:last-child { border-right: none; }
   .sort-tab.active { background: var(--cyan); color: #000; }
   .sort-tab:not(.active):hover { background: var(--surface); color: var(--text); }
-
-  .search-box {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    color: var(--text);
-    font-family: inherit;
-    font-size: 0.8rem;
-    padding: 7px 14px;
-    outline: none;
-    width: 220px;
-    letter-spacing: 0.04em;
-  }
+  .search-box { background: var(--bg2); border: 1px solid var(--border); color: var(--text); font-family: inherit; font-size: 0.8rem; padding: 7px 14px; outline: none; width: 220px; letter-spacing: 0.04em; }
   .search-box:focus { border-color: var(--cyan-dim); }
   .search-box::placeholder { color: var(--muted); }
-
-  .plat-filter {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    color: var(--text);
-    font-family: inherit;
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    padding: 7px 12px;
-    outline: none;
-    cursor: pointer;
-  }
-
+  .plat-filter { background: var(--bg2); border: 1px solid var(--border); color: var(--text); font-family: inherit; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; padding: 7px 12px; outline: none; cursor: pointer; }
   .lib-count { margin-left: auto; font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted2); }
 
   /* ── Game grid ── */
-  .game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(520px, 1fr)); gap: 2px; }
+  .game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
 
   .game-card {
     background: var(--bg2);
     border: 1px solid var(--border);
     cursor: pointer;
-    transition: border-color 0.12s;
-    position: relative;
+    transition: border-color 0.12s, transform 0.12s;
     overflow: hidden;
   }
-  .game-card::before {
-    content: '';
-    position: absolute;
-    left: 0; top: 0; bottom: 0;
-    width: 2px;
-    background: var(--border2);
-    transition: background 0.12s;
-  }
-  .game-card:hover { border-color: var(--border2); }
-  .game-card:hover::before { background: var(--cyan-dim); }
-  .game-card.expanded::before { background: var(--cyan); }
-  .game-card.expanded { border-color: var(--cyan-dim); }
+  .game-card:hover { border-color: var(--cyan-dim); transform: translateY(-2px); }
 
-  .game-card-bg {
-    position: absolute; inset: 0;
-    background-size: cover;
-    background-position: center;
-    opacity: 0.07;
-    pointer-events: none;
+  .game-card-banner {
+    width: 100%;
+    aspect-ratio: 460 / 215;
+    object-fit: cover;
+    display: block;
+    background: var(--surface);
   }
-
-  .game-card-body {
+  .game-card-banner-ph {
+    width: 100%;
+    aspect-ratio: 460 / 215;
+    background: var(--surface);
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 14px 16px 14px 18px;
-    position: relative;
-    z-index: 1;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 2rem;
+    letter-spacing: 0.1em;
   }
 
-  .game-icon {
-    width: 72px; height: 72px;
-    object-fit: cover;
+  .game-card-info { padding: 12px 14px; }
+  .game-card-title { font-size: 1rem; font-weight: 700; letter-spacing: 0.02em; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .game-card-meta { display: flex; gap: 14px; font-size: 0.72rem; color: var(--muted2); margin-bottom: 10px; flex-wrap: wrap; }
+  .game-card-meta span { display: flex; align-items: center; gap: 4px; }
+  .game-card-meta .ico { color: var(--cyan-dim); }
+
+  .pct-track { height: 3px; background: var(--border2); margin-bottom: 6px; }
+  .pct-fill { height: 100%; background: var(--cyan-dim); }
+  .pct-fill.full { background: var(--cyan); }
+
+  .game-card-footer { display: flex; align-items: center; justify-content: space-between; }
+  .pct-val { font-size: 0.7rem; letter-spacing: 0.08em; color: var(--muted2); }
+  .pct-val.full { color: var(--cyan); }
+
+  .plat-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #1b2838;
+    border: 1px solid #2a475e;
+    padding: 3px 8px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: #c7d5e0;
+  }
+  .plat-badge.ra { background: #1a1a2e; border-color: #333; color: var(--muted2); }
+  .plat-badge img { width: 12px; height: 12px; }
+
+  /* ── Pagination ── */
+  .pagination { display: flex; justify-content: center; gap: 2px; margin-top: 20px; }
+  .pagination button { background: var(--bg2); border: 1px solid var(--border); color: var(--muted2); font-family: inherit; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; padding: 5px 12px; cursor: pointer; }
+  .pagination button.active { background: var(--cyan); border-color: var(--cyan); color: #000; }
+  .pagination button:disabled { opacity: 0.3; cursor: default; }
+
+  /* ── Empty ── */
+  .empty-state { background: var(--bg2); border: 1px dashed var(--border2); padding: 40px; text-align: center; color: var(--muted2); font-size: 0.82rem; letter-spacing: 0.1em; }
+
+  /* ══════════════════════════════════════════════
+     GAME DETAIL PAGE
+  ══════════════════════════════════════════════ */
+
+  .breadcrumb { font-size: 0.72rem; letter-spacing: 0.1em; color: var(--muted2); margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+  .breadcrumb a { color: var(--muted2); text-decoration: none; cursor: pointer; }
+  .breadcrumb a:hover { color: var(--cyan); }
+  .breadcrumb-sep { color: var(--muted); }
+
+  .game-hero {
+    display: flex;
+    gap: 24px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--cyan);
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    align-items: flex-start;
+  }
+  .game-hero-cover {
+    width: 200px;
     flex-shrink: 0;
+  }
+  .game-hero-cover img {
+    width: 100%;
+    display: block;
     border: 1px solid var(--border);
   }
-  .game-icon-placeholder {
-    width: 72px; height: 72px;
-    flex-shrink: 0;
+  .game-hero-cover-ph {
+    width: 200px;
+    aspect-ratio: 460/215;
     background: var(--surface);
     border: 1px solid var(--border);
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--muted);
-    font-size: 1.4rem;
+    font-size: 1.5rem;
+    flex-shrink: 0;
   }
+  .game-hero-info { flex: 1; min-width: 0; }
+  .game-hero-title { font-size: 1.8rem; font-weight: 700; letter-spacing: 0.03em; margin-bottom: 8px; }
+  .game-hero-badge { margin-bottom: 16px; }
 
-  .game-info { flex: 1; min-width: 0; }
-  .game-name {
-    font-size: 0.95rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    margin-bottom: 5px;
-  }
-  .game-meta {
-    display: flex;
-    gap: 18px;
-    font-size: 0.72rem;
-    color: var(--muted2);
-    letter-spacing: 0.05em;
-    margin-bottom: 8px;
-    flex-wrap: wrap;
-  }
-  .game-meta span { display: flex; align-items: center; gap: 5px; }
-  .game-meta .ico { color: var(--cyan-dim); font-size: 0.65rem; }
+  .hero-stats { display: flex; gap: 32px; flex-wrap: wrap; margin-top: 16px; }
+  .hero-stat .val { font-size: 1.3rem; font-weight: 700; font-family: 'Share Tech Mono', monospace; }
+  .hero-stat .lbl { font-size: 0.62rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted2); margin-top: 2px; }
+  .hero-stat .val.cyan { color: var(--cyan); }
 
-  .pct-track { height: 3px; background: var(--border2); margin-bottom: 4px; }
-  .pct-fill { height: 100%; background: var(--cyan-dim); transition: width 0.3s; }
-  .pct-fill.full { background: var(--cyan); }
+  .hero-pct-track { height: 4px; background: var(--border2); margin-top: 16px; }
+  .hero-pct-fill { height: 100%; background: var(--cyan-dim); transition: width 0.4s; }
+  .hero-pct-fill.full { background: var(--cyan); }
+  .hero-pct-label { font-size: 0.7rem; color: var(--muted2); letter-spacing: 0.08em; margin-top: 4px; }
 
-  .game-footer { display: flex; align-items: center; justify-content: space-between; }
-  .pct-val { font-size: 0.68rem; letter-spacing: 0.1em; color: var(--muted2); }
-  .pct-val.full { color: var(--cyan); }
+  /* Achievement list */
+  .ach-tab-bar { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 0; }
+  .ach-tab { background: none; border: none; border-bottom: 2px solid transparent; color: var(--muted2); font-family: inherit; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; padding: 10px 20px; cursor: pointer; margin-bottom: -1px; }
+  .ach-tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
 
-  .plat-tag {
-    font-size: 0.6rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--muted);
-    border: 1px solid var(--border);
-    padding: 1px 6px;
-  }
+  .ach-table { background: var(--bg2); border: 1px solid var(--border); border-top: none; }
 
-  /* ── Achievement panel ── */
-  .ach-panel {
-    display: none;
-    border-top: 1px solid var(--border);
-    padding: 12px 18px;
-    position: relative;
-    z-index: 1;
-  }
-  .game-card.expanded .ach-panel { display: block; }
-
-  .ach-list { display: flex; flex-direction: column; max-height: 300px; overflow-y: auto; }
-  .ach-row {
+  .ach-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 5px 6px;
+    gap: 14px;
+    padding: 12px 16px;
     border-bottom: 1px solid var(--border);
     transition: background 0.1s;
+    cursor: default;
   }
-  .ach-row:last-child { border-bottom: none; }
-  .ach-row:hover { background: var(--surface); }
-  .ach-row.locked { opacity: 0.35; }
+  .ach-item:last-child { border-bottom: none; }
+  .ach-item:hover { background: var(--surface); }
+  .ach-item.locked { opacity: 0.4; }
 
-  .ach-icon { width: 32px; height: 32px; object-fit: cover; border: 1px solid var(--border); flex-shrink: 0; }
-  .ach-icon-ph { width: 32px; height: 32px; background: var(--surface); border: 1px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 0.9rem; }
-  .ach-text { flex: 1; min-width: 0; }
-  .ach-name { font-size: 0.8rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .ach-desc { font-size: 0.68rem; color: var(--muted2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
-  .ach-right { text-align: right; flex-shrink: 0; }
-  .ach-date { font-size: 0.65rem; color: var(--green); letter-spacing: 0.05em; }
-  .ach-rarity { font-size: 0.62rem; color: var(--muted2); margin-top: 1px; }
+  .ach-item-icon { width: 48px; height: 48px; object-fit: cover; border: 1px solid var(--border); flex-shrink: 0; }
+  .ach-item-icon-ph { width: 48px; height: 48px; background: var(--surface); border: 1px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 1.2rem; }
 
-  .ach-loading { font-size: 0.72rem; color: var(--muted2); text-align: center; padding: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
+  .ach-item-body { flex: 1; min-width: 0; }
+  .ach-item-name { font-size: 0.9rem; font-weight: 700; margin-bottom: 2px; }
+  .ach-item-desc { font-size: 0.75rem; color: var(--muted2); }
 
-  /* ── Empty / pagination ── */
-  .empty-state {
-    background: var(--bg2);
-    border: 1px dashed var(--border2);
-    padding: 40px;
-    text-align: center;
-    color: var(--muted2);
-    font-size: 0.82rem;
-    letter-spacing: 0.1em;
-  }
+  .ach-item-meta { text-align: right; flex-shrink: 0; min-width: 120px; }
+  .ach-item-date { font-size: 0.72rem; color: var(--green); letter-spacing: 0.05em; font-weight: 600; }
+  .ach-item-rarity { font-size: 0.68rem; color: var(--muted2); margin-top: 3px; }
+  .ach-item-points { font-size: 0.7rem; color: var(--amber); font-weight: 600; margin-top: 3px; }
 
-  .pagination { display: flex; justify-content: center; gap: 2px; margin-top: 20px; }
-  .pagination button {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    color: var(--muted2);
-    font-family: inherit;
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    padding: 5px 12px;
-    cursor: pointer;
-  }
-  .pagination button.active { background: var(--cyan); border-color: var(--cyan); color: #000; }
-  .pagination button:disabled { opacity: 0.3; cursor: default; }
+  .ach-loading-row { padding: 32px; text-align: center; color: var(--muted2); font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; }
 
   @media (max-width: 640px) {
     header { padding: 14px 16px; }
     main { padding: 20px 16px 40px; }
     .game-grid { grid-template-columns: 1fr; }
     .search-box { width: 100%; }
+    .game-hero { flex-direction: column; }
+    .game-hero-cover { width: 100%; }
   }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="brand">
+  <div class="brand" onclick="showLibrary()">
     <div class="brand-sub">Pantheon // Hall of Records</div>
     <div class="brand-title">Cross-Platform Achievements</div>
   </div>
@@ -401,37 +272,22 @@
   </div>
 </header>
 
+<!-- ══ LIBRARY PAGE ══ -->
+<div class="page active" id="page-library">
 <main>
-
-  <!-- Stats -->
-  <div class="section-header" style="margin-top:0">
-    <div class="section-line"></div>
-  </div>
-  <div class="stats-bar" id="statsBar">
+  <div class="section-header" style="margin-top:0"><div class="section-line"></div></div>
+  <div class="stats-bar">
     <div class="stat-main">
       <div class="val" id="s-pct">0<span>%</span></div>
       <div class="lbl">Total Completion</div>
     </div>
     <div class="stat-divider"></div>
-    <div class="stat">
-      <div class="val" id="s-games">0</div>
-      <div class="lbl">Games Tracked</div>
-    </div>
-    <div class="stat">
-      <div class="val" id="s-earned">0</div>
-      <div class="lbl">Unlocked</div>
-    </div>
-    <div class="stat">
-      <div class="val" id="s-total">0</div>
-      <div class="lbl">Available</div>
-    </div>
-    <div class="stat amber" id="s-perfect-wrap">
-      <div class="val" id="s-perfect">0</div>
-      <div class="lbl">Completed 100%</div>
-    </div>
+    <div class="stat"><div class="val" id="s-games">0</div><div class="lbl">Games Tracked</div></div>
+    <div class="stat"><div class="val" id="s-earned">0</div><div class="lbl">Unlocked</div></div>
+    <div class="stat"><div class="val" id="s-total">0</div><div class="lbl">Available</div></div>
+    <div class="stat amber"><div class="val" id="s-perfect">0</div><div class="lbl">Completed 100%</div></div>
   </div>
 
-  <!-- Platforms -->
   <div class="section-header">
     <div class="section-label">Platforms</div>
     <div class="section-line"></div>
@@ -440,7 +296,6 @@
     <div class="empty-state" style="width:100%">Loading record…</div>
   </div>
 
-  <!-- Library -->
   <div class="section-header">
     <div class="section-label">Library</div>
     <div class="section-line"></div>
@@ -464,13 +319,50 @@
 
   <div class="game-grid" id="gameGrid"></div>
   <div class="pagination" id="pagination"></div>
-
 </main>
+</div>
+
+<!-- ══ GAME DETAIL PAGE ══ -->
+<div class="page" id="page-game">
+<main>
+  <div class="breadcrumb">
+    <a onclick="showLibrary()">Library</a>
+    <span class="breadcrumb-sep">›</span>
+    <span id="bc-game">—</span>
+  </div>
+
+  <div class="game-hero" id="gameHero">
+    <div class="ach-loading-row">Loading…</div>
+  </div>
+
+  <div class="ach-tab-bar">
+    <button class="ach-tab active">Achievements</button>
+  </div>
+  <div class="ach-table" id="achTable">
+    <div class="ach-loading-row">Loading achievements…</div>
+  </div>
+</main>
+</div>
 
 <script>
 let currentSort = 'completion';
 let searchTimer = null;
-let achCache = {};
+
+// ── Router ────────────────────────────────────────────────────────────────────
+
+function showLibrary() {
+  document.getElementById('page-library').classList.add('active');
+  document.getElementById('page-game').classList.remove('active');
+  window.scrollTo(0, 0);
+}
+
+async function showGame(id, name) {
+  document.getElementById('page-library').classList.remove('active');
+  document.getElementById('page-game').classList.add('active');
+  document.getElementById('bc-game').textContent = name || '…';
+  window.scrollTo(0, 0);
+  await loadGameDetail(id);
+}
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 
@@ -482,11 +374,10 @@ loadGames(1);
 async function loadSummary() {
   const d = await apiFetch('/api/summary');
   if (!d) return;
-
   document.getElementById('s-pct').innerHTML = d.overall_pct + '<span>%</span>';
   document.getElementById('s-games').textContent = d.total_games;
-  document.getElementById('s-earned').textContent = d.total_earned.toLocaleString();
-  document.getElementById('s-total').textContent = d.total_possible.toLocaleString();
+  document.getElementById('s-earned').textContent = (d.total_earned||0).toLocaleString();
+  document.getElementById('s-total').textContent = (d.total_possible||0).toLocaleString();
   document.getElementById('s-perfect').textContent = d.perfect_games || 0;
 
   const pg = document.getElementById('platformsGrid');
@@ -506,23 +397,20 @@ async function loadSummary() {
     </div>`).join('');
 }
 
-// ── Games ─────────────────────────────────────────────────────────────────────
+// ── Library ───────────────────────────────────────────────────────────────────
 
 async function loadGames(page = 1) {
   const sort = currentSort;
   const search = document.getElementById('searchInput').value.trim();
   const platform = document.getElementById('platFilter').value;
-
-  let url = `/api/games?sort=${sort}&page=${page}&page_size=20`;
+  let url = `/api/games?sort=${sort}&page=${page}&page_size=24`;
   if (platform) url += `&platform=${encodeURIComponent(platform)}`;
   if (search) url += `&search=${encodeURIComponent(search)}`;
-
   const data = await apiFetch(url);
   if (!data) return;
-
   document.getElementById('libCount').textContent = data.total + ' games';
   renderGames(data.games);
-  renderPagination(data.total, page, 20);
+  renderPagination(data.total, page, 24);
 }
 
 function renderGames(games) {
@@ -531,73 +419,40 @@ function renderGames(games) {
     grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">No record yet. Run a sync to pull your history.</div>';
     return;
   }
-  grid.innerHTML = games.map(g => gameCardHTML(g)).join('');
+  grid.innerHTML = games.map(gameCardHTML).join('');
 }
 
 function gameCardHTML(g) {
   const pct = parseFloat(g.completion_pct) || 0;
   const full = pct >= 100;
-  const bg = g.icon_url ? `style="background-image:url('${g.icon_url}')"` : '';
-  const icon = g.icon_url
-    ? `<img class="game-icon" src="${g.icon_url}" alt="" onerror="this.style.display='none'">`
-    : `<div class="game-icon-placeholder">◈</div>`;
+  const bannerUrl = g.platform === 'steam'
+    ? `https://cdn.akamai.steamstatic.com/steam/apps/${g.platform_app_id}/header.jpg`
+    : g.icon_url;
+
+  const banner = bannerUrl
+    ? `<img class="game-card-banner" src="${bannerUrl}" alt="" onerror="this.outerHTML='<div class=game-card-banner-ph>◈</div>'">`
+    : `<div class="game-card-banner-ph">◈</div>`;
+
+  const badge = g.platform === 'steam'
+    ? `<span class="plat-badge"><img src="https://store.steampowered.com/favicon.ico" alt="">Steam</span>`
+    : `<span class="plat-badge ra">RetroAchievements</span>`;
 
   return `
-<div class="game-card" id="card-${g.platform_game_id}" onclick="toggleAch(${g.platform_game_id}, this)">
-  <div class="game-card-bg" ${bg}></div>
-  <div class="game-card-body">
-    ${icon}
-    <div class="game-info">
-      <div class="game-name" title="${esc(g.name)}">${esc(g.name)}</div>
-      <div class="game-meta">
-        <span><span class="ico">◈</span>${g.earned_achievements} / ${g.total_achievements}</span>
-        <span><span class="ico">◷</span>${fmtTime(g.playtime_minutes)}</span>
-        <span><span class="ico">◻</span>${fmt(g.last_played_at)}</span>
-      </div>
-      <div class="pct-track"><div class="pct-fill ${full?'full':''}" style="width:${pct}%"></div></div>
-      <div class="game-footer">
-        <span class="pct-val ${full?'full':''}">${pct}%</span>
-        <span class="plat-tag">${platLabel(g.platform)}</span>
-      </div>
+<div class="game-card" onclick="showGame(${g.platform_game_id}, ${JSON.stringify(esc(g.name))})">
+  ${banner}
+  <div class="game-card-info">
+    <div class="game-card-title" title="${esc(g.name)}">${esc(g.name)}</div>
+    <div class="game-card-meta">
+      <span><span class="ico">◈</span>${g.earned_achievements} / ${g.total_achievements}</span>
+      <span><span class="ico">◷</span>${fmtTime(g.playtime_minutes)}</span>
+      <span><span class="ico">◻</span>${fmt(g.last_played_at)}</span>
+    </div>
+    <div class="pct-track"><div class="pct-fill ${full?'full':''}" style="width:${pct}%"></div></div>
+    <div class="game-card-footer">
+      <span class="pct-val ${full?'full':''}">${pct}%</span>
+      ${badge}
     </div>
   </div>
-  <div class="ach-panel" id="ach-${g.platform_game_id}">
-    <div class="ach-loading">Loading achievements…</div>
-  </div>
-</div>`;
-}
-
-async function toggleAch(id, card) {
-  const panel = document.getElementById('ach-' + id);
-  const expanded = card.classList.toggle('expanded');
-  if (!expanded) return;
-
-  if (achCache[id]) { panel.innerHTML = achCache[id]; return; }
-
-  const achs = await apiFetch(`/api/games/${id}/achievements`);
-  if (!achs) { panel.innerHTML = '<div class="ach-loading">Failed to load.</div>'; return; }
-
-  const html = achs.length
-    ? `<div class="ach-list">${achs.map(achRowHTML).join('')}</div>`
-    : `<div class="ach-loading">No achievement data available.</div>`;
-  achCache[id] = html;
-  panel.innerHTML = html;
-}
-
-function achRowHTML(a) {
-  const icon = a.icon_url
-    ? `<img class="ach-icon" src="${a.icon_url}" alt="" onerror="this.style.display='none'">`
-    : `<div class="ach-icon-ph">◈</div>`;
-  const rarity = a.rarity_pct != null ? `<div class="ach-rarity">${parseFloat(a.rarity_pct).toFixed(1)}% global</div>` : '';
-  const date = a.unlocked_at ? `<div class="ach-date">${fmt(a.unlocked_at)}</div>` : '';
-  return `
-<div class="ach-row ${a.unlocked ? '' : 'locked'}">
-  ${icon}
-  <div class="ach-text">
-    <div class="ach-name">${esc(a.name || a.platform_ach_id)}</div>
-    <div class="ach-desc">${esc(a.description || '')}</div>
-  </div>
-  <div class="ach-right">${date}${rarity}</div>
 </div>`;
 }
 
@@ -613,8 +468,6 @@ function renderPagination(total, page, size) {
   el.innerHTML = h;
 }
 
-// ── Sort / search ─────────────────────────────────────────────────────────────
-
 function setSort(btn) {
   document.querySelectorAll('.sort-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
@@ -627,6 +480,87 @@ function onSearch() {
   searchTimer = setTimeout(() => loadGames(1), 300);
 }
 
+// ── Game detail ───────────────────────────────────────────────────────────────
+
+async function loadGameDetail(id) {
+  document.getElementById('gameHero').innerHTML = '<div class="ach-loading-row">Loading…</div>';
+  document.getElementById('achTable').innerHTML = '<div class="ach-loading-row">Loading achievements…</div>';
+
+  const [game, achs] = await Promise.all([
+    apiFetch(`/api/games/${id}`),
+    apiFetch(`/api/games/${id}/achievements`),
+  ]);
+
+  if (!game) {
+    document.getElementById('gameHero').innerHTML = '<div class="ach-loading-row">Game not found.</div>';
+    return;
+  }
+
+  document.getElementById('bc-game').textContent = game.name;
+
+  const pct = parseFloat(game.completion_pct) || 0;
+  const full = pct >= 100;
+  const bannerUrl = game.platform === 'steam'
+    ? `https://cdn.akamai.steamstatic.com/steam/apps/${game.platform_app_id}/header.jpg`
+    : game.icon_url;
+
+  const cover = bannerUrl
+    ? `<div class="game-hero-cover"><img src="${bannerUrl}" alt="" onerror="this.outerHTML='<div class=game-hero-cover-ph>◈</div>'"></div>`
+    : `<div class="game-hero-cover-ph">◈</div>`;
+
+  const badge = game.platform === 'steam'
+    ? `<span class="plat-badge"><img src="https://store.steampowered.com/favicon.ico" alt="">Steam</span>`
+    : `<span class="plat-badge ra">RetroAchievements</span>`;
+
+  document.getElementById('gameHero').innerHTML = `
+    ${cover}
+    <div class="game-hero-info">
+      <div class="game-hero-title">${esc(game.name)}</div>
+      <div class="game-hero-badge">${badge}</div>
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <div class="val cyan">${game.earned_achievements} / ${game.total_achievements}</div>
+          <div class="lbl">Achievements</div>
+        </div>
+        <div class="hero-stat">
+          <div class="val">${fmtTime(game.playtime_minutes)}</div>
+          <div class="lbl">Playtime</div>
+        </div>
+        <div class="hero-stat">
+          <div class="val">${fmt(game.last_played_at)}</div>
+          <div class="lbl">Last Played</div>
+        </div>
+      </div>
+      <div class="hero-pct-track"><div class="hero-pct-fill ${full?'full':''}" style="width:${pct}%"></div></div>
+      <div class="hero-pct-label">${pct}% complete</div>
+    </div>`;
+
+  if (!achs || !achs.length) {
+    document.getElementById('achTable').innerHTML = '<div class="ach-loading-row">No achievement data available.</div>';
+    return;
+  }
+
+  document.getElementById('achTable').innerHTML = achs.map(achItemHTML).join('');
+}
+
+function achItemHTML(a) {
+  const icon = a.icon_url
+    ? `<img class="ach-item-icon" src="${a.icon_url}" alt="" onerror="this.outerHTML='<div class=ach-item-icon-ph>◈</div>'">`
+    : `<div class="ach-item-icon-ph">◈</div>`;
+  const date = a.unlocked_at ? `<div class="ach-item-date">Unlocked ${fmt(a.unlocked_at)}</div>` : '';
+  const rarity = a.rarity_pct != null ? `<div class="ach-item-rarity">${parseFloat(a.rarity_pct).toFixed(1)}% of players</div>` : '';
+  const pts = a.points ? `<div class="ach-item-points">${a.points} pts</div>` : '';
+  return `
+<div class="ach-item ${a.unlocked ? '' : 'locked'}">
+  ${icon}
+  <div class="ach-item-body">
+    <div class="ach-item-name">${esc(a.name || a.platform_ach_id)}</div>
+    <div class="ach-item-desc">${esc(a.description || '')}</div>
+  </div>
+  <div class="ach-item-meta">${date}${rarity}${pts}</div>
+</div>`;
+}
+
 // ── Sync ──────────────────────────────────────────────────────────────────────
 
 async function triggerSync() {
@@ -636,8 +570,7 @@ async function triggerSync() {
   lbl.textContent = 'Syncing…';
   try {
     const r = await fetch('/api/sync', { method: 'POST' });
-    if (r.status === 409) { lbl.textContent = 'Already syncing'; }
-    else { lbl.textContent = 'Sync started'; }
+    lbl.textContent = r.status === 409 ? 'Already syncing' : 'Sync started';
   } catch(_) { lbl.textContent = 'Error'; }
   setTimeout(() => { btn.disabled = false; lbl.textContent = 'Ready'; }, 4000);
 }
@@ -645,11 +578,8 @@ async function triggerSync() {
 // ── Util ──────────────────────────────────────────────────────────────────────
 
 async function apiFetch(url) {
-  try {
-    const r = await fetch(url);
-    if (!r.ok) return null;
-    return await r.json();
-  } catch(_) { return null; }
+  try { const r = await fetch(url); if (!r.ok) return null; return await r.json(); }
+  catch(_) { return null; }
 }
 
 function fmt(dt) {
