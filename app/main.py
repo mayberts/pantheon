@@ -269,37 +269,42 @@ async def statistics():
         rarity_rows = await _fetch(
             conn,
             """
-            SELECT
-                CASE
-                    WHEN a.rarity_pct <= 1  THEN 'Legendary'
-                    WHEN a.rarity_pct <= 5  THEN 'Epic'
-                    WHEN a.rarity_pct <= 20 THEN 'Rare'
-                    WHEN a.rarity_pct <= 50 THEN 'Uncommon'
-                    ELSE 'Common'
-                END AS tier,
-                COUNT(*) AS cnt
-            FROM user_achievements ua
-            JOIN achievements a ON a.id = ua.achievement_id
-            WHERE ua.unlocked = true AND a.rarity_pct IS NOT NULL
+            SELECT tier, COUNT(*) AS cnt
+            FROM (
+                SELECT
+                    CASE
+                        WHEN a.rarity_pct <= 1  THEN 'Legendary'
+                        WHEN a.rarity_pct <= 5  THEN 'Epic'
+                        WHEN a.rarity_pct <= 20 THEN 'Rare'
+                        WHEN a.rarity_pct <= 50 THEN 'Uncommon'
+                        ELSE 'Common'
+                    END AS tier,
+                    a.rarity_pct
+                FROM user_achievements ua
+                JOIN achievements a ON a.id = ua.achievement_id
+                WHERE ua.unlocked = true AND a.rarity_pct IS NOT NULL
+            ) sub
             GROUP BY tier
-            ORDER BY MIN(a.rarity_pct)
+            ORDER BY MIN(rarity_pct)
             """,
         )
 
         completion_dist = await _fetch(
             conn,
             """
-            SELECT
-                CASE
-                    WHEN completion_pct = 0         THEN '0%'
-                    WHEN completion_pct <= 25       THEN '1-25%'
-                    WHEN completion_pct <= 50       THEN '25-50%'
-                    WHEN completion_pct <= 75       THEN '50-75%'
-                    WHEN completion_pct < 100       THEN '75-99%'
-                    ELSE '100%'
-                END AS bracket,
-                COUNT(*) AS cnt
-            FROM user_games WHERE total_achievements > 0
+            SELECT bracket, COUNT(*) AS cnt
+            FROM (
+                SELECT
+                    CASE
+                        WHEN completion_pct = 0         THEN '0%'
+                        WHEN completion_pct <= 25       THEN '1-25%'
+                        WHEN completion_pct <= 50       THEN '25-50%'
+                        WHEN completion_pct <= 75       THEN '50-75%'
+                        WHEN completion_pct < 100       THEN '75-99%'
+                        ELSE '100%'
+                    END AS bracket
+                FROM user_games WHERE total_achievements > 0
+            ) sub
             GROUP BY bracket
             """,
         )
