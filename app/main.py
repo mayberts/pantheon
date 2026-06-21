@@ -298,12 +298,12 @@ async def statistics():
                 FROM (
                     SELECT
                         CASE
-                            WHEN completion_pct = 0         THEN '0%'
-                            WHEN completion_pct <= 25       THEN '1-25%'
-                            WHEN completion_pct <= 50       THEN '25-50%'
-                            WHEN completion_pct <= 75       THEN '50-75%'
-                            WHEN completion_pct < 100       THEN '75-99%'
-                            ELSE '100%'
+                            WHEN completion_pct = 0         THEN '0%%'
+                            WHEN completion_pct <= 25       THEN '1-25%%'
+                            WHEN completion_pct <= 50       THEN '25-50%%'
+                            WHEN completion_pct <= 75       THEN '50-75%%'
+                            WHEN completion_pct < 100       THEN '75-99%%'
+                            ELSE '100%%'
                         END AS bracket
                     FROM user_games WHERE total_achievements > 0
                 ) sub
