@@ -463,7 +463,7 @@ let searchTimer = null;
 
 let charts = {};
 
-function setPage(name) {
+function _activatePage(name) {
   ['library','stats','game'].forEach(p => document.getElementById('page-'+p).classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   ['library','stats'].forEach(n => document.getElementById('nav-'+n)?.classList.remove('active'));
@@ -472,12 +472,29 @@ function setPage(name) {
   window.scrollTo(0, 0);
 }
 
-function showLibrary() { setPage('library'); }
-
-function showStats() {
-  setPage('stats');
-  loadStats();
+function _route(path, push) {
+  if (push) history.pushState({path}, '', path);
+  if (path === '/' || path === '/library') {
+    _activatePage('library');
+  } else if (path === '/stats') {
+    _activatePage('stats');
+    loadStats();
+  } else if (path.startsWith('/game/')) {
+    const id = path.split('/')[2];
+    _activatePage('game');
+    document.getElementById('bc-game').textContent = '\u2026';
+    loadGameDetail(id);
+  } else {
+    _activatePage('library');
+  }
 }
+
+window.addEventListener('popstate', e => {
+  _route((e.state && e.state.path) || '/', false);
+});
+
+function showLibrary() { _route('/library', true); }
+function showStats()   { _route('/stats', true); }
 
 let statsCacheLoaded = false;
 async function loadStats() {
@@ -625,11 +642,7 @@ function destroyChart(id) {
   if (charts[id]) { charts[id].destroy(); delete charts[id]; }
 }
 
-async function showGame(id) {
-  setPage('game');
-  document.getElementById('bc-game').textContent = '…';
-  await loadGameDetail(id);
-}
+async function showGame(id) { _route('/game/' + id, true); }
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 
@@ -938,6 +951,13 @@ function platLabel(p) {
 function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+(function boot() {
+  const path = window.location.pathname;
+  history.replaceState({path}, '', path);
+  _route(path, false);
+})();
 </script>
 </body>
 </html>
