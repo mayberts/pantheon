@@ -27,6 +27,7 @@ class XboxPlatform(Platform):
             titles = resp.json().get("titles", [])
 
             for title in titles:
+                self._inc("games_seen")
                 title_id = str(title.get("titleId", ""))
                 name = title.get("name", f"Title {title_id}")
                 total = int(title.get("achievement", {}).get("totalAchievements", 0))
@@ -71,6 +72,7 @@ class XboxPlatform(Platform):
 
                 achievements = ach_resp.json().get("achievements", [])
                 for ach in achievements:
+                    self._inc("achievements_synced")
                     ach_id = str(ach.get("id", ""))
                     ach_name = ach.get("name", "")
                     description = ach.get("description") or ach.get("lockedDescription")

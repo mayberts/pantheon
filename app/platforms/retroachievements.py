@@ -28,6 +28,7 @@ class RetroAchievementsPlatform(Platform):
             games = data.get("Results", [])
 
             for game in games:
+                self._inc("games_seen")
                 ra_id = str(game["GameID"])
                 name = game.get("Title", f"Game {ra_id}")
                 icon_path = game.get("ImageIcon", "")
@@ -51,6 +52,7 @@ class RetroAchievementsPlatform(Platform):
 
                 detail = detail_resp.json()
                 for ach_id_str, ach in detail.get("Achievements", {}).items():
+                    self._inc("achievements_synced")
                     unlocked_at = None
                     date_earned = ach.get("DateEarned")
                     if date_earned:
