@@ -17,6 +17,13 @@ log = logging.getLogger(__name__)
 _sync_lock = asyncio.Lock()
 _scheduler = AsyncIOScheduler()
 
+# In-memory sync progress tracker
+_sync_progress: dict = {
+    "running": False,
+    "started_at": None,
+    "platforms": {},  # platform -> {status, games_seen, achievements_synced, error}
+}
+
 
 async def _enrich_hltb() -> None:
     """Fetch How Long To Beat times for any games that don't have them yet."""
@@ -63,35 +70,53 @@ async def run_sync() -> None:
         log.info("Sync already running, skipping")
         return
     async with _sync_lock:
+        from datetime import datetime, timezone
+        _sync_progress["running"] = True
+        _sync_progress["started_at"] = datetime.now(timezone.utc).isoformat()
+        _sync_progress["platforms"] = {}
+
         pool = await db.get_pool()
         for account in config.enabled_accounts():
             platform_cls = PLATFORMS.get(account["platform"])
             if not platform_cls:
                 continue
-            log.info("Syncing %s / %s", account["platform"], account["external_id"])
+            plat = account["platform"]
+            log.info("Syncing %s / %s", plat, account["external_id"])
+            _sync_progress["platforms"][plat] = {
+                "status": "running",
+                "games_seen": 0,
+                "achievements_synced": 0,
+                "error": None,
+            }
             async with pool.connection() as conn:
                 run_row = await _fetchrow(
                     conn,
                     "INSERT INTO sync_runs (platform, started_at, status) VALUES (%s, now(), 'running') RETURNING id",
-                    account["platform"],
+                    plat,
                 )
                 run_id = run_row["id"] if run_row else None
                 try:
                     worker = platform_cls()
+                    worker._progress = _sync_progress["platforms"][plat]
                     await worker.sync(account, conn)
                     if run_id:
                         await conn.execute(
                             "UPDATE sync_runs SET finished_at = now(), status = 'ok' WHERE id = %s",
                             (run_id,),
                         )
-                    log.info("Sync done: %s", account["platform"])
+                    _sync_progress["platforms"][plat]["status"] = "done"
+                    log.info("Sync done: %s", plat)
                 except Exception as exc:
-                    log.exception("Sync failed: %s", account["platform"])
+                    log.exception("Sync failed: %s", plat)
+                    _sync_progress["platforms"][plat]["status"] = "error"
+                    _sync_progress["platforms"][plat]["error"] = str(exc)
                     if run_id:
                         await conn.execute(
                             "UPDATE sync_runs SET finished_at = now(), status = 'error', detail = %s WHERE id = %s",
                             (str(exc), run_id),
                         )
+
+        _sync_progress["running"] = False
         asyncio.create_task(_enrich_hltb())
 
 
@@ -501,6 +526,11 @@ async def hltb_refresh():
         await conn.execute("UPDATE platform_games SET hltb_main=NULL, hltb_extra=NULL, hltb_complete=NULL")
     asyncio.create_task(_enrich_hltb())
     return {"status": "started"}
+
+
+@app.get("/api/sync/progress")
+async def sync_progress():
+    return _sync_progress
 
 
 @app.post("/api/sync", status_code=202)

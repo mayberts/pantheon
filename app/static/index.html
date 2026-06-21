@@ -46,6 +46,11 @@
   .btn-sync { background: var(--cyan); color: #000; border: none; padding: 8px 20px; font-family: inherit; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; transition: background 0.15s; }
   .btn-sync:hover { background: #00eeff; }
   .btn-sync:disabled { background: var(--muted); cursor: default; }
+  .sp-row { display: flex; align-items: center; gap: 8px; }
+  .sp-icon { font-size: 0.9rem; width: 14px; text-align: center; }
+  .sp-plat { font-weight: 700; letter-spacing: 0.05em; text-transform: capitalize; min-width: 80px; }
+  .sp-stat { color: var(--muted2); }
+  .sp-err { color: #f55; font-size: 0.75rem; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   /* ── Header nav ── */
   .header-nav { display: flex; gap: 4px; }
@@ -330,6 +335,10 @@
     <button class="btn-sync" id="syncBtn" onclick="triggerSync()">Sync Now</button>
   </div>
 </header>
+<div id="syncProgressPanel" style="display:none;background:var(--surface1);border-bottom:1px solid var(--border);padding:10px 32px;">
+  <div style="font-size:0.72rem;color:var(--muted2);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px" id="syncProgressHdr">Sync Progress</div>
+  <div id="syncProgressBody" style="display:flex;flex-wrap:wrap;gap:10px 32px;font-size:0.8rem;"></div>
+</div>
 
 <!-- ══ LIBRARY PAGE ══ -->
 <div class="page active" id="page-library">
@@ -912,6 +921,8 @@ function achItemHTML(a) {
 
 // ── Sync ──────────────────────────────────────────────────────────────────────
 
+let _syncPoller = null;
+
 async function triggerSync() {
   const btn = document.getElementById('syncBtn');
   const lbl = document.getElementById('syncLabel');
@@ -919,9 +930,61 @@ async function triggerSync() {
   lbl.textContent = 'Syncing…';
   try {
     const r = await fetch('/api/sync', { method: 'POST' });
-    lbl.textContent = r.status === 409 ? 'Already syncing' : 'Sync started';
-  } catch(_) { lbl.textContent = 'Error'; }
-  setTimeout(() => { btn.disabled = false; lbl.textContent = 'Ready'; }, 4000);
+    if (r.status === 409) { lbl.textContent = 'Already syncing'; }
+    else { lbl.textContent = 'Sync started'; }
+  } catch(_) { lbl.textContent = 'Error'; btn.disabled = false; return; }
+  startSyncPoller();
+}
+
+function startSyncPoller() {
+  if (_syncPoller) return;
+  showSyncProgress();
+  _syncPoller = setInterval(pollSyncProgress, 1500);
+  pollSyncProgress();
+}
+
+async function pollSyncProgress() {
+  const data = await apiFetch('/api/sync/progress');
+  if (!data) return;
+  renderSyncProgress(data);
+  if (!data.running) {
+    clearInterval(_syncPoller);
+    _syncPoller = null;
+    const btn = document.getElementById('syncBtn');
+    const lbl = document.getElementById('syncLabel');
+    if (btn) btn.disabled = false;
+    if (lbl) lbl.textContent = 'Done';
+    setTimeout(() => { if (lbl) lbl.textContent = 'Ready'; }, 3000);
+  }
+}
+
+function showSyncProgress() {
+  const el = document.getElementById('syncProgressPanel');
+  if (el) el.style.display = 'block';
+}
+
+function renderSyncProgress(data) {
+  const panel = document.getElementById('syncProgressPanel');
+  if (!panel) return;
+  panel.style.display = 'block';
+  const body = document.getElementById('syncProgressBody');
+  if (!body) return;
+  const plats = data.platforms || {};
+  const rows = Object.entries(plats).map(([plat, info]) => {
+    const icon = info.status === 'done' ? '&#10003;' : info.status === 'error' ? '&#10007;' : '&#8230;';
+    const color = info.status === 'done' ? 'var(--green)' : info.status === 'error' ? '#f55' : 'var(--cyan)';
+    return '<div class="sp-row">' +
+      '<span class="sp-icon" style="color:' + color + '">' + icon + '</span>' +
+      '<span class="sp-plat">' + plat + '</span>' +
+      '<span class="sp-stat">' + (info.games_seen ?? 0) + ' games</span>' +
+      '<span class="sp-stat">' + (info.achievements_synced ?? 0) + ' achievements</span>' +
+      (info.error ? '<span class="sp-err">' + info.error + '</span>' : '') +
+      '</div>';
+  }).join('');
+  const started = data.started_at ? new Date(data.started_at).toLocaleTimeString() : '';
+  body.innerHTML = rows || '<div class="sp-row" style="color:var(--muted2)">Waiting for sync to start...</div>';
+  const hdr = document.getElementById('syncProgressHdr');
+  if (hdr) hdr.textContent = data.running ? 'Syncing... (started ' + started + ')' : 'Last sync: ' + started;
 }
 
 // ── Util ──────────────────────────────────────────────────────────────────────
@@ -962,6 +1025,10 @@ function esc(s) {
   const path = window.location.pathname;
   history.replaceState({path}, '', path);
   _route(path, false);
+  // Poll sync progress on load if sync is already running
+  apiFetch('/api/sync/progress').then(data => {
+    if (data && data.running) startSyncPoller();
+  });
 })();
 </script>
 </body>

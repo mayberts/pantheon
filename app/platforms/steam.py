@@ -31,6 +31,7 @@ class SteamPlatform(Platform):
             games = resp.json().get("response", {}).get("games", [])
 
             for game in games:
+                self._inc("games_seen")
                 app_id = str(game["appid"])
                 name = game.get("name", f"App {app_id}")
                 icon_hash = game.get("img_icon_url", "")
@@ -101,6 +102,7 @@ class SteamPlatform(Platform):
                         global_map[ga["name"]] = ga["percent"]
 
                 for ach in achievements:
+                    self._inc("achievements_synced")
                     api_name = ach["apiname"]
                     schema = schema_map.get(api_name, {})
                     ach_id = await db.upsert_achievement(
