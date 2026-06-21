@@ -325,7 +325,8 @@ async def statistics():
             SELECT DATE_TRUNC('month', unlocked_at)::date AS month, COUNT(*) AS cnt
             FROM user_achievements
             WHERE unlocked = true AND unlocked_at IS NOT NULL
-            GROUP BY month ORDER BY month
+            GROUP BY DATE_TRUNC('month', unlocked_at)::date
+            ORDER BY DATE_TRUNC('month', unlocked_at)::date
             """,
         )
 
