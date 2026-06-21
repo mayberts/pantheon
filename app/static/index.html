@@ -779,7 +779,7 @@ function renderAchs() {
 }
 
 function fmtHLTB(h) {
-  if (!h) return null;
+  if (h == null || parseFloat(h) <= 0) return null;
   const n = parseFloat(h);
   return n % 1 === 0 ? n + 'h' : n.toFixed(1) + 'h';
 }

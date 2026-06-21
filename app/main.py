@@ -32,20 +32,26 @@ async def _enrich_hltb() -> None:
             "SELECT id, name FROM platform_games WHERE hltb_main IS NULL AND total_achievements > 0",
         )
 
-    hltb = HowLongToBeat()
+    log.info("HLTB enrichment: %d games to look up", len(rows))
+    hltb = HowLongToBeat(0.0)  # accept all similarities, filter manually
     for row in rows:
         try:
             results = await hltb.async_search(row["name"])
             if not results:
+                log.info("HLTB no results for: %s", row["name"])
+                # store zeros so we don't keep retrying games with no HLTB entry
+                async with pool.connection() as conn:
+                    await db.update_hltb(conn, row["id"], -1, None, None)
                 continue
             best = max(results, key=lambda r: r.similarity)
-            main = best.main_story or None
-            extra = best.main_extra or None
-            complete = best.completionist or None
+            log.info("HLTB best match for '%s': '%s' (sim=%.2f)", row["name"], best.game_name, best.similarity)
+            main = float(best.main_story) if best.main_story and best.main_story > 0 else None
+            extra = float(best.main_extra) if best.main_extra and best.main_extra > 0 else None
+            complete = float(best.completionist) if best.completionist and best.completionist > 0 else None
             async with pool.connection() as conn:
-                await db.update_hltb(conn, row["id"], main, extra, complete)
-            log.info("HLTB %s: main=%.1fh extra=%.1fh complete=%.1fh",
-                     row["name"], main or 0, extra or 0, complete or 0)
+                await db.update_hltb(conn, row["id"], main or -1, extra, complete)
+            log.info("HLTB stored %s: main=%s extra=%s complete=%s",
+                     row["name"], main, extra, complete)
             await asyncio.sleep(config.REQUEST_DELAY_SECONDS)
         except Exception:
             log.exception("HLTB lookup failed for %s", row["name"])
@@ -460,6 +466,40 @@ async def game_achievements(platform_game_id: int):
             platform_game_id,
         )
     return [dict(r) for r in rows]
+
+
+@app.get("/api/hltb-test")
+async def hltb_test(name: str = Query(...)):
+    """Test HLTB search for a game name. Use to verify the library works."""
+    try:
+        from howlongtobeatpy import HowLongToBeat
+    except ImportError:
+        return {"error": "howlongtobeatpy not installed"}
+    try:
+        results = await HowLongToBeat(0.0).async_search(name)
+        if not results:
+            return {"error": "no results", "name": name}
+        best = max(results, key=lambda r: r.similarity)
+        return {
+            "query": name,
+            "matched": best.game_name,
+            "similarity": best.similarity,
+            "main_story": best.main_story,
+            "main_extra": best.main_extra,
+            "completionist": best.completionist,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/api/hltb-refresh", status_code=202)
+async def hltb_refresh():
+    """Reset all HLTB data and re-enrich from scratch."""
+    pool = await db.get_pool()
+    async with pool.connection() as conn:
+        await conn.execute("UPDATE platform_games SET hltb_main=NULL, hltb_extra=NULL, hltb_complete=NULL")
+    asyncio.create_task(_enrich_hltb())
+    return {"status": "started"}
 
 
 @app.post("/api/sync", status_code=202)
