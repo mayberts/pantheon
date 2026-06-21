@@ -383,6 +383,73 @@ async def game_achievements(platform_game_id: int):
     return [dict(r) for r in rows]
 
 
+@app.get("/api/statistics/debug")
+async def statistics_debug():
+    """Runs each statistics sub-query individually and reports which one errors."""
+    import traceback
+    pool = await db.get_pool()
+    results = {}
+    queries = {
+        "general": (
+            _fetchrow,
+            """SELECT SUM(ug.earned_achievements) AS unlocked, COUNT(*) AS games_total
+               FROM user_games ug WHERE ug.total_achievements > 0""",
+        ),
+        "daily_max": (
+            _fetchrow,
+            """SELECT COUNT(*) AS cnt FROM user_achievements
+               WHERE unlocked = true AND unlocked_at IS NOT NULL
+               GROUP BY unlocked_at::date ORDER BY cnt DESC LIMIT 1""",
+        ),
+        "monthly_max": (
+            _fetchrow,
+            """SELECT COUNT(*) AS cnt FROM user_achievements
+               WHERE unlocked = true AND unlocked_at IS NOT NULL
+               GROUP BY DATE_TRUNC('month', unlocked_at) ORDER BY cnt DESC LIMIT 1""",
+        ),
+        "rarity": (
+            _fetch,
+            """SELECT tier, COUNT(*) AS cnt FROM (
+                 SELECT CASE WHEN a.rarity_pct <= 1 THEN 'Legendary'
+                             WHEN a.rarity_pct <= 5 THEN 'Epic'
+                             WHEN a.rarity_pct <= 20 THEN 'Rare'
+                             WHEN a.rarity_pct <= 50 THEN 'Uncommon'
+                             ELSE 'Common' END AS tier, a.rarity_pct
+                 FROM user_achievements ua
+                 JOIN achievements a ON a.id = ua.achievement_id
+                 WHERE ua.unlocked = true AND a.rarity_pct IS NOT NULL
+               ) sub GROUP BY tier ORDER BY MIN(rarity_pct)""",
+        ),
+        "completion_dist": (
+            _fetch,
+            """SELECT bracket, COUNT(*) AS cnt FROM (
+                 SELECT CASE WHEN completion_pct = 0 THEN '0%'
+                             WHEN completion_pct <= 25 THEN '1-25%'
+                             WHEN completion_pct <= 50 THEN '25-50%'
+                             WHEN completion_pct <= 75 THEN '50-75%'
+                             WHEN completion_pct < 100 THEN '75-99%'
+                             ELSE '100%' END AS bracket
+                 FROM user_games WHERE total_achievements > 0
+               ) sub GROUP BY bracket""",
+        ),
+        "progression": (
+            _fetch,
+            """SELECT DATE_TRUNC('month', unlocked_at)::date AS month, COUNT(*) AS cnt
+               FROM user_achievements WHERE unlocked = true AND unlocked_at IS NOT NULL
+               GROUP BY DATE_TRUNC('month', unlocked_at)::date
+               ORDER BY DATE_TRUNC('month', unlocked_at)::date""",
+        ),
+    }
+    async with pool.connection() as conn:
+        for name, (fn, sql) in queries.items():
+            try:
+                await fn(conn, sql)
+                results[name] = "ok"
+            except Exception:
+                results[name] = traceback.format_exc()
+    return results
+
+
 @app.post("/api/sync", status_code=202)
 async def trigger_sync():
     if _sync_lock.locked():
