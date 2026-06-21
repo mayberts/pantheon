@@ -356,10 +356,10 @@ function showLibrary() {
   window.scrollTo(0, 0);
 }
 
-async function showGame(id, name) {
+async function showGame(id) {
   document.getElementById('page-library').classList.remove('active');
   document.getElementById('page-game').classList.add('active');
-  document.getElementById('bc-game').textContent = name || '…';
+  document.getElementById('bc-game').textContent = '…';
   window.scrollTo(0, 0);
   await loadGameDetail(id);
 }
@@ -438,7 +438,7 @@ function gameCardHTML(g) {
     : `<span class="plat-badge ra">RetroAchievements</span>`;
 
   return `
-<div class="game-card" onclick="showGame(${g.platform_game_id}, ${JSON.stringify(esc(g.name))})">
+<div class="game-card" onclick="showGame(${g.platform_game_id})">
   ${banner}
   <div class="game-card-info">
     <div class="game-card-title" title="${esc(g.name)}">${esc(g.name)}</div>
