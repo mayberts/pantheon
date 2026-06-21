@@ -225,136 +225,141 @@ async def game_detail(platform_game_id: int):
 
 @app.get("/api/statistics")
 async def statistics():
+    import traceback as _tb
     pool = await db.get_pool()
-    async with pool.connection() as conn:
-        general = await _fetchrow(
-            conn,
-            """
-            SELECT
-                SUM(ug.earned_achievements)                                          AS unlocked,
-                SUM(ug.total_achievements - ug.earned_achievements)                  AS locked,
-                COUNT(*)                                                             AS games_total,
-                COUNT(*) FILTER (WHERE ug.completion_pct = 100)                     AS mastered,
-                COUNT(*) FILTER (WHERE ug.completion_pct >= 80 AND ug.completion_pct < 100) AS finished,
-                ROUND(AVG(ug.completion_pct), 1)                                    AS avg_completion,
-                ROUND(SUM(ug.earned_achievements)::numeric
-                      / NULLIF(SUM(ug.total_achievements), 0) * 100, 2)             AS absolute_completion
-            FROM user_games ug
-            WHERE ug.total_achievements > 0
-            """,
-        )
-
-        daily_max = await _fetchrow(
-            conn,
-            """
-            SELECT COUNT(*) AS cnt
-            FROM user_achievements
-            WHERE unlocked = true AND unlocked_at IS NOT NULL
-            GROUP BY unlocked_at::date
-            ORDER BY cnt DESC LIMIT 1
-            """,
-        )
-
-        monthly_max = await _fetchrow(
-            conn,
-            """
-            SELECT COUNT(*) AS cnt
-            FROM user_achievements
-            WHERE unlocked = true AND unlocked_at IS NOT NULL
-            GROUP BY DATE_TRUNC('month', unlocked_at)
-            ORDER BY cnt DESC LIMIT 1
-            """,
-        )
-
-        rarity_rows = await _fetch(
-            conn,
-            """
-            SELECT tier, COUNT(*) AS cnt
-            FROM (
+    try:
+        async with pool.connection() as conn:
+            general = await _fetchrow(
+                conn,
+                """
                 SELECT
-                    CASE
-                        WHEN a.rarity_pct <= 1  THEN 'Legendary'
-                        WHEN a.rarity_pct <= 5  THEN 'Epic'
-                        WHEN a.rarity_pct <= 20 THEN 'Rare'
-                        WHEN a.rarity_pct <= 50 THEN 'Uncommon'
-                        ELSE 'Common'
-                    END AS tier,
-                    a.rarity_pct
-                FROM user_achievements ua
-                JOIN achievements a ON a.id = ua.achievement_id
-                WHERE ua.unlocked = true AND a.rarity_pct IS NOT NULL
-            ) sub
-            GROUP BY tier
-            ORDER BY MIN(rarity_pct)
-            """,
-        )
+                    SUM(ug.earned_achievements)                                          AS unlocked,
+                    SUM(ug.total_achievements - ug.earned_achievements)                  AS locked,
+                    COUNT(*)                                                             AS games_total,
+                    COUNT(*) FILTER (WHERE ug.completion_pct = 100)                     AS mastered,
+                    COUNT(*) FILTER (WHERE ug.completion_pct >= 80 AND ug.completion_pct < 100) AS finished,
+                    ROUND(AVG(ug.completion_pct), 1)                                    AS avg_completion,
+                    ROUND(SUM(ug.earned_achievements)::numeric
+                          / NULLIF(SUM(ug.total_achievements), 0) * 100, 2)             AS absolute_completion
+                FROM user_games ug
+                WHERE ug.total_achievements > 0
+                """,
+            )
 
-        completion_dist = await _fetch(
-            conn,
-            """
-            SELECT bracket, COUNT(*) AS cnt
-            FROM (
-                SELECT
-                    CASE
-                        WHEN completion_pct = 0         THEN '0%'
-                        WHEN completion_pct <= 25       THEN '1-25%'
-                        WHEN completion_pct <= 50       THEN '25-50%'
-                        WHEN completion_pct <= 75       THEN '50-75%'
-                        WHEN completion_pct < 100       THEN '75-99%'
-                        ELSE '100%'
-                    END AS bracket
-                FROM user_games WHERE total_achievements > 0
-            ) sub
-            GROUP BY bracket
-            """,
-        )
+            daily_max = await _fetchrow(
+                conn,
+                """
+                SELECT COUNT(*) AS cnt
+                FROM user_achievements
+                WHERE unlocked = true AND unlocked_at IS NOT NULL
+                GROUP BY unlocked_at::date
+                ORDER BY cnt DESC LIMIT 1
+                """,
+            )
 
-        platform_rows = await _fetch(
-            conn,
-            """
-            SELECT pg.platform, SUM(ug.earned_achievements) AS earned
-            FROM user_games ug
-            JOIN platform_games pg ON pg.id = ug.platform_game_id
-            GROUP BY pg.platform
-            """,
-        )
+            monthly_max = await _fetchrow(
+                conn,
+                """
+                SELECT COUNT(*) AS cnt
+                FROM user_achievements
+                WHERE unlocked = true AND unlocked_at IS NOT NULL
+                GROUP BY DATE_TRUNC('month', unlocked_at)
+                ORDER BY cnt DESC LIMIT 1
+                """,
+            )
 
-        progression = await _fetch(
-            conn,
-            """
-            SELECT DATE_TRUNC('month', unlocked_at)::date AS month, COUNT(*) AS cnt
-            FROM user_achievements
-            WHERE unlocked = true AND unlocked_at IS NOT NULL
-            GROUP BY DATE_TRUNC('month', unlocked_at)::date
-            ORDER BY DATE_TRUNC('month', unlocked_at)::date
-            """,
-        )
+            rarity_rows = await _fetch(
+                conn,
+                """
+                SELECT tier, COUNT(*) AS cnt
+                FROM (
+                    SELECT
+                        CASE
+                            WHEN a.rarity_pct <= 1  THEN 'Legendary'
+                            WHEN a.rarity_pct <= 5  THEN 'Epic'
+                            WHEN a.rarity_pct <= 20 THEN 'Rare'
+                            WHEN a.rarity_pct <= 50 THEN 'Uncommon'
+                            ELSE 'Common'
+                        END AS tier,
+                        a.rarity_pct
+                    FROM user_achievements ua
+                    JOIN achievements a ON a.id = ua.achievement_id
+                    WHERE ua.unlocked = true AND a.rarity_pct IS NOT NULL
+                ) sub
+                GROUP BY tier
+                ORDER BY MIN(rarity_pct)
+                """,
+            )
 
-    cum, total = [], 0
-    for r in progression:
-        total += r["cnt"]
-        cum.append({"month": r["month"].isoformat(), "total": total})
+            completion_dist = await _fetch(
+                conn,
+                """
+                SELECT bracket, COUNT(*) AS cnt
+                FROM (
+                    SELECT
+                        CASE
+                            WHEN completion_pct = 0         THEN '0%'
+                            WHEN completion_pct <= 25       THEN '1-25%'
+                            WHEN completion_pct <= 50       THEN '25-50%'
+                            WHEN completion_pct <= 75       THEN '50-75%'
+                            WHEN completion_pct < 100       THEN '75-99%'
+                            ELSE '100%'
+                        END AS bracket
+                    FROM user_games WHERE total_achievements > 0
+                ) sub
+                GROUP BY bracket
+                """,
+            )
 
-    bracket_order = ["0%", "1-25%", "25-50%", "50-75%", "75-99%", "100%"]
-    dist_map = {r["bracket"]: r["cnt"] for r in completion_dist}
+            platform_rows = await _fetch(
+                conn,
+                """
+                SELECT pg.platform, SUM(ug.earned_achievements) AS earned
+                FROM user_games ug
+                JOIN platform_games pg ON pg.id = ug.platform_game_id
+                GROUP BY pg.platform
+                """,
+            )
 
-    return {
-        "general": {
-            "unlocked":           int(general["unlocked"] or 0),
-            "locked":             int(general["locked"] or 0),
-            "games_total":        int(general["games_total"] or 0),
-            "mastered":           int(general["mastered"] or 0),
-            "finished":           int(general["finished"] or 0),
-            "avg_completion":     float(general["avg_completion"] or 0),
-            "absolute_completion": float(general["absolute_completion"] or 0),
-            "daily_max":          int(daily_max["cnt"]) if daily_max else 0,
-            "monthly_max":        int(monthly_max["cnt"]) if monthly_max else 0,
-        },
-        "rarity": [{"tier": r["tier"], "cnt": r["cnt"]} for r in rarity_rows],
-        "completion_dist": [{"bracket": b, "cnt": dist_map.get(b, 0)} for b in bracket_order],
-        "platforms": [{"platform": r["platform"], "earned": int(r["earned"] or 0)} for r in platform_rows],
-        "progression": cum,
-    }
+            progression = await _fetch(
+                conn,
+                """
+                SELECT DATE_TRUNC('month', unlocked_at)::date AS month, COUNT(*) AS cnt
+                FROM user_achievements
+                WHERE unlocked = true AND unlocked_at IS NOT NULL
+                GROUP BY DATE_TRUNC('month', unlocked_at)::date
+                ORDER BY DATE_TRUNC('month', unlocked_at)::date
+                """,
+            )
+
+        cum, total = [], 0
+        for r in progression:
+            total += r["cnt"]
+            cum.append({"month": r["month"].isoformat(), "total": total})
+
+        bracket_order = ["0%", "1-25%", "25-50%", "50-75%", "75-99%", "100%"]
+        dist_map = {r["bracket"]: r["cnt"] for r in completion_dist}
+
+        return {
+            "general": {
+                "unlocked":           int(general["unlocked"] or 0),
+                "locked":             int(general["locked"] or 0),
+                "games_total":        int(general["games_total"] or 0),
+                "mastered":           int(general["mastered"] or 0),
+                "finished":           int(general["finished"] or 0),
+                "avg_completion":     float(general["avg_completion"] or 0),
+                "absolute_completion": float(general["absolute_completion"] or 0),
+                "daily_max":          int(daily_max["cnt"]) if daily_max else 0,
+                "monthly_max":        int(monthly_max["cnt"]) if monthly_max else 0,
+            },
+            "rarity": [{"tier": r["tier"], "cnt": r["cnt"]} for r in rarity_rows],
+            "completion_dist": [{"bracket": b, "cnt": dist_map.get(b, 0)} for b in bracket_order],
+            "platforms": [{"platform": r["platform"], "earned": int(r["earned"] or 0)} for r in platform_rows],
+            "progression": cum,
+        }
+    except Exception as exc:
+        log.exception("statistics endpoint failed")
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}\n\n{_tb.format_exc()}")
 
 
 @app.get("/api/games/{platform_game_id}/achievements")
