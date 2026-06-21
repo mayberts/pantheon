@@ -511,6 +511,27 @@ async def trigger_sync():
     return {"status": "started"}
 
 
+@app.get("/api/xbox-xuid")
+async def xbox_xuid():
+    """Look up the XUID for the configured XBOX_OPENXBL_KEY."""
+    if not config.XBOX_OPENXBL_KEY:
+        raise HTTPException(status_code=400, detail="XBOX_OPENXBL_KEY not set")
+    async with __import__("httpx").AsyncClient(timeout=15) as client:
+        resp = await client.get(
+            "https://xbl.io/api/v2/account",
+            headers={"X-Authorization": config.XBOX_OPENXBL_KEY, "Accept": "application/json"},
+        )
+    if resp.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"OpenXBL returned {resp.status_code}: {resp.text}")
+    data = resp.json()
+    users = data.get("profileUsers", [])
+    if not users:
+        raise HTTPException(status_code=502, detail=f"No profileUsers in response: {data}")
+    xuid = users[0].get("id")
+    gamertag = next((s["value"] for s in users[0].get("settings", []) if s["id"] == "Gamertag"), None)
+    return {"xuid": xuid, "gamertag": gamertag, "hint": "Add XBOX_XUID to your .env and restart"}
+
+
 @app.get("/api/status")
 async def status():
     pool = await db.get_pool()
