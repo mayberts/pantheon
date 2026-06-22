@@ -125,14 +125,17 @@ async def _enrich_xbox_store_ids() -> None:
                 async with httpx.AsyncClient(timeout=10) as client:
                     resp = await client.get(url)
                 if resp.status_code != 200:
+                    log.warning("Xbox store lookup %s: HTTP %d — %s", row["xbox_pfn"], resp.status_code, resp.text[:200])
                     return
                 data = resp.json()
-                big_id = (data.get("data") or {}).get("bigId") or (data.get("bigId"))
+                log.info("Xbox store API keys for '%s': %s", row["name"], list(data.keys()))
+                big_id = (data.get("data") or {}).get("bigId") or data.get("bigId")
                 if not big_id:
-                    # try alternate path
                     products = data.get("products") or []
                     if products:
                         big_id = products[0].get("productId")
+                if not big_id:
+                    log.warning("Xbox store: no bigId in response for '%s': %s", row["name"], str(data)[:300])
                 if big_id:
                     async with pool.connection() as conn:
                         await db.set_store_id(conn, row["id"], big_id)
