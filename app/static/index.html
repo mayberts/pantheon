@@ -960,7 +960,7 @@ async function loadGameDetail(id) {
   const storeUrl = game.platform === 'steam'
     ? `https://store.steampowered.com/app/${game.platform_app_id}`
     : game.platform === 'xbox'
-    ? `https://www.xbox.com/en-US/games/store/-/${game.platform_app_id}`
+    ? `https://www.microsoft.com/store/productId/${game.platform_app_id}`
     : `https://retroachievements.org/game/${game.platform_app_id}`;
   const storeLabel = game.platform === 'steam' ? 'Steam Store' : game.platform === 'xbox' ? 'Xbox Store' : 'RetroAchievements';
   const badge = game.platform === 'steam'
