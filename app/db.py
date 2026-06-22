@@ -122,7 +122,11 @@ async def upsert_achievement(conn, platform_game_id: int, platform_ach_id: str,
 
 
 async def get_earned_counts(conn, linked_account_id: int) -> dict[str, int]:
-    """Return {platform_app_id: earned_achievements} for a linked account."""
+    """Return {platform_app_id: earned_achievements} only for games that have achievement records stored.
+
+    Excludes games where earned > 0 but no achievement rows exist yet, so the sync
+    will re-fetch detail for those games rather than skipping them permanently.
+    """
     rows = await _fetch(
         conn,
         """
@@ -130,8 +134,14 @@ async def get_earned_counts(conn, linked_account_id: int) -> dict[str, int]:
         FROM user_games ug
         JOIN platform_games pg ON pg.id = ug.platform_game_id
         WHERE ug.linked_account_id = %s
+          AND EXISTS (
+              SELECT 1 FROM user_achievements ua
+              JOIN achievements a ON a.id = ua.achievement_id
+              WHERE ua.linked_account_id = %s
+                AND a.platform_game_id = pg.id
+          )
         """,
-        linked_account_id,
+        linked_account_id, linked_account_id,
     )
     return {r["platform_app_id"]: r["earned_achievements"] for r in rows}
 
