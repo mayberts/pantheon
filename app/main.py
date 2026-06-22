@@ -791,15 +791,73 @@ async def xbox_debug():
         )
     body = resp.json() if resp.status_code == 200 else {}
     titles = body.get("titles") or (body.get("content", {}).get("titles", []) if isinstance(body.get("content"), dict) else body.get("content") if isinstance(body.get("content"), list) else [])
+    titles_360 = [
+        {"name": t.get("name"), "titleId": t.get("titleId"), "devices": t.get("devices"), "sourceVersion": t.get("achievement", {}).get("sourceVersion"), "pfn": t.get("pfn")}
+        for t in titles
+        if t.get("devices") == ["Xbox360"] or t.get("achievement", {}).get("sourceVersion") == 1
+    ]
     return {
         "status_code": resp.status_code,
         "xuid": config.XBOX_XUID,
         "top_level_keys": list(body.keys()) if body else None,
         "content_type": type(body.get("content")).__name__ if "content" in body else None,
         "title_count": len(titles),
+        "titles_360_count": len(titles_360),
+        "titles_360_sample": titles_360[:5],
         "first_title": titles[0] if titles else None,
         "raw_truncated": resp.text[:500] if resp.status_code != 200 else None,
     }
+
+
+@app.get("/api/xbox-360-debug")
+async def xbox_360_debug():
+    """Fetch achievement detail for the first Xbox 360 game in the DB to inspect the API response."""
+    if not config.XBOX_OPENXBL_KEY or not config.XBOX_XUID:
+        raise HTTPException(status_code=400, detail="XBOX_OPENXBL_KEY or XBOX_XUID not set")
+    import httpx
+    pool = await db.get_pool()
+    async with pool.connection() as conn:
+        row = await _fetchrow(
+            conn,
+            """SELECT pg.platform_app_id, pg.name FROM platform_games pg
+               JOIN user_games ug ON ug.platform_game_id = pg.id
+               JOIN linked_accounts la ON la.id = ug.linked_account_id
+               WHERE pg.platform = 'xbox' AND la.external_id = %s
+                 AND ug.total_achievements > 0
+                 AND ug.earned_achievements > 0
+                 AND pg.xbox_pfn IS NULL
+               LIMIT 1""",
+            config.XBOX_XUID,
+        )
+    if not row:
+        return {"error": "No Xbox 360 games found (games with earned achievements and no pfn)"}
+    title_id = row["platform_app_id"]
+    xuid = config.XBOX_XUID
+    headers = {"X-Authorization": config.XBOX_OPENXBL_KEY, "Accept": "application/json"}
+    results = {}
+    async with httpx.AsyncClient(timeout=30, headers=headers) as client:
+        for label, url in [
+            ("x360", f"https://xbl.io/api/v2/achievements/x360/{xuid}/{title_id}"),
+            ("player", f"https://xbl.io/api/v2/achievements/player/{xuid}/{title_id}"),
+        ]:
+            resp = await client.get(url)
+            body = resp.json() if resp.status_code == 200 else {}
+            content = body.get("content")
+            achievements = (
+                body.get("achievements")
+                or (content if isinstance(content, list) else None)
+                or (content.get("achievements") if isinstance(content, dict) else None)
+                or []
+            )
+            results[label] = {
+                "status_code": resp.status_code,
+                "top_level_keys": list(body.keys()) if body else None,
+                "achievement_count": len(achievements),
+                "first_achievement": achievements[0] if achievements else None,
+                "raw_truncated": resp.text[:300] if resp.status_code != 200 else None,
+            }
+            await asyncio.sleep(1)
+    return {"game": row["name"], "title_id": title_id, "results": results}
 
 
 @app.get("/api/xbox-store-debug")
