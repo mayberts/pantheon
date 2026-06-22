@@ -166,10 +166,8 @@
   .plat-badge img { width: 12px; height: 12px; }
 
   /* ── Pagination ── */
-  .pagination { display: flex; justify-content: center; gap: 2px; margin-top: 20px; }
-  .pagination button { background: var(--bg2); border: 1px solid var(--border); color: var(--muted2); font-family: inherit; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; padding: 5px 12px; cursor: pointer; }
-  .pagination button.active { background: var(--cyan); border-color: var(--cyan); color: #000; }
-  .pagination button:disabled { opacity: 0.3; cursor: default; }
+  .scroll-sentinel { height: 1px; }
+  .scroll-loading { text-align: center; padding: 16px; color: var(--muted2); font-size: 0.8rem; letter-spacing: 0.1em; }
 
   /* ── Empty ── */
   .empty-state { background: var(--bg2); border: 1px dashed var(--border2); padding: 40px; text-align: center; color: var(--muted2); font-size: 0.82rem; letter-spacing: 0.1em; }
@@ -377,7 +375,7 @@
       <button class="sort-tab" data-sort="name" onclick="setSort(this)">Name</button>
     </div>
     <input class="search-box" type="text" id="searchInput" placeholder="Search games…" oninput="onSearch()">
-    <select class="plat-filter" id="platFilter" onchange="loadGames(1)">
+    <select class="plat-filter" id="platFilter" onchange="loadGames()">
       <option value="">All Platforms</option>
       <option value="steam">Steam</option>
       <option value="retroachievements">RetroAchievements</option>
@@ -387,7 +385,8 @@
   </div>
 
   <div class="game-grid" id="gameGrid"></div>
-  <div class="pagination" id="pagination"></div>
+  <div class="scroll-sentinel" id="scrollSentinel"></div>
+  <div class="scroll-loading" id="scrollLoading" style="display:none">Loading…</div>
 </main>
 </div>
 
@@ -658,7 +657,7 @@ async function showGame(id) { _route('/game/' + id, true); }
 // ── Init ─────────────────────────────────────────────────────────────────────
 
 loadSummary();
-loadGames(1);
+loadGames();
 
 // ── Summary ───────────────────────────────────────────────────────────────────
 
@@ -690,27 +689,64 @@ async function loadSummary() {
 
 // ── Library ───────────────────────────────────────────────────────────────────
 
-async function loadGames(page = 1) {
+let _gamesPage = 1;
+let _gamesTotal = 0;
+let _gamesLoading = false;
+let _scrollObserver = null;
+
+function resetGames() {
+  _gamesPage = 1;
+  _gamesTotal = 0;
+  _gamesLoading = false;
+  document.getElementById('gameGrid').innerHTML = '';
+}
+
+async function loadGames(reset = true) {
+  if (reset) resetGames();
+  if (_gamesLoading) return;
+  if (_gamesPage > 1 && _gamesPage > Math.ceil(_gamesTotal / 48)) return;
+  _gamesLoading = true;
+  const loading = document.getElementById('scrollLoading');
+  if (loading) loading.style.display = 'block';
+
   const sort = currentSort;
   const search = document.getElementById('searchInput').value.trim();
   const platform = document.getElementById('platFilter').value;
-  let url = `/api/games?sort=${sort}&page=${page}&page_size=24`;
+  let url = `/api/games?sort=${sort}&page=${_gamesPage}&page_size=48`;
   if (platform) url += `&platform=${encodeURIComponent(platform)}`;
   if (search) url += `&search=${encodeURIComponent(search)}`;
   const data = await apiFetch(url);
+  _gamesLoading = false;
+  if (loading) loading.style.display = 'none';
   if (!data) return;
+
+  _gamesTotal = data.total;
   document.getElementById('libCount').textContent = data.total + ' games';
-  renderGames(data.games);
-  renderPagination(data.total, page, 24);
+  appendGames(data.games, _gamesPage === 1);
+  _gamesPage++;
+  setupScrollObserver();
 }
 
-function renderGames(games) {
+function appendGames(games, replace) {
   const grid = document.getElementById('gameGrid');
-  if (!games.length) {
+  if (replace && !games.length) {
     grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">No record yet. Run a sync to pull your history.</div>';
     return;
   }
-  grid.innerHTML = games.map(gameCardHTML).join('');
+  if (replace) grid.innerHTML = '';
+  grid.insertAdjacentHTML('beforeend', games.map(gameCardHTML).join(''));
+}
+
+function setupScrollObserver() {
+  if (_scrollObserver) _scrollObserver.disconnect();
+  const sentinel = document.getElementById('scrollSentinel');
+  if (!sentinel) return;
+  const allLoaded = (_gamesPage - 1) * 48 >= _gamesTotal;
+  if (allLoaded) return;
+  _scrollObserver = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting) loadGames(false);
+  }, { rootMargin: '200px' });
+  _scrollObserver.observe(sentinel);
 }
 
 function gameCardHTML(g) {
@@ -748,28 +784,18 @@ function gameCardHTML(g) {
 </div>`;
 }
 
-function renderPagination(total, page, size) {
-  const pages = Math.ceil(total / size);
-  const el = document.getElementById('pagination');
-  if (pages <= 1) { el.innerHTML = ''; return; }
-  let h = `<button onclick="loadGames(${page-1})" ${page===1?'disabled':''}>←</button>`;
-  const s = Math.max(1, page-2), e = Math.min(pages, page+2);
-  for (let p = s; p <= e; p++)
-    h += `<button class="${p===page?'active':''}" onclick="loadGames(${p})">${p}</button>`;
-  h += `<button onclick="loadGames(${page+1})" ${page===pages?'disabled':''}>→</button>`;
-  el.innerHTML = h;
-}
+
 
 function setSort(btn) {
   document.querySelectorAll('.sort-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   currentSort = btn.dataset.sort;
-  loadGames(1);
+  loadGames();
 }
 
 function onSearch() {
   clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => loadGames(1), 300);
+  searchTimer = setTimeout(() => loadGames(), 300);
 }
 
 // ── Game detail ───────────────────────────────────────────────────────────────
