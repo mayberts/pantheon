@@ -963,7 +963,7 @@ async function loadGameDetail(id) {
     .replace(/\s*\((windows|pc|xbox one|xbox series[^)]*)\)/gi, '')
     .trim();
   const xboxUrl = game.store_id
-    ? `https://www.xbox.com/games/store/-/${game.store_id}`
+    ? `https://apps.microsoft.com/detail/${game.store_id}`
     : `https://www.xbox.com/en-US/Search/Results?q=${encodeURIComponent(xboxSearchName)}`;
   const storeUrl = game.platform === 'steam'
     ? `https://store.steampowered.com/app/${game.platform_app_id}`
