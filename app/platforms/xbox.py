@@ -24,7 +24,10 @@ class XboxPlatform(Platform):
             # Fetch all titles the player has played
             resp = await client.get(f"{_BASE}/achievements/player/{xuid}")
             resp.raise_for_status()
-            titles = resp.json().get("titles", [])
+            data = resp.json()
+            titles = data.get("titles") or data.get("content", {}).get("titles", [])
+            if not titles and "content" in data:
+                titles = data["content"] if isinstance(data["content"], list) else []
 
             for title in titles:
                 self._inc("games_seen")
