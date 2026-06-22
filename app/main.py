@@ -759,7 +759,31 @@ async def xbox_debug():
     }
 
 
-@app.get("/api/status")
+@app.get("/api/xbox-store-debug")
+async def xbox_store_debug():
+    """Test the Microsoft Store catalog API with a known pfn from the DB."""
+    import httpx
+    pool = await db.get_pool()
+    async with pool.connection() as conn:
+        row = await _fetchrow(
+            conn,
+            "SELECT id, name, xbox_pfn FROM platform_games WHERE platform = 'xbox' AND xbox_pfn IS NOT NULL LIMIT 1",
+        )
+    if not row:
+        return {"error": "No Xbox games with pfn in DB — run a sync first"}
+    pfn = row["xbox_pfn"]
+    url = f"https://storeedgefd.dsx.mp.microsoft.com/v9.0/packageManifests/{pfn}?market=US&locale=en-US&deviceFamily=Windows.Desktop"
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get(url)
+    return {
+        "game": row["name"],
+        "pfn": pfn,
+        "status_code": resp.status_code,
+        "top_level_keys": list(resp.json().keys()) if resp.status_code == 200 else None,
+        "raw": resp.json() if resp.status_code == 200 else resp.text[:1000],
+    }
+
+
 async def status():
     pool = await db.get_pool()
     async with pool.connection() as conn:
