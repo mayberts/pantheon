@@ -121,9 +121,10 @@ async def _enrich_xbox_store_ids() -> None:
     async def _lookup(row):
         async with sem:
             try:
-                url = f"https://storeedgefd.dsx.mp.microsoft.com/v9.0/products?market=US&locale=en-US&deviceFamily=Windows.Desktop&pfns={row['xbox_pfn']}"
+                url = "https://storeedgefd.dsx.mp.microsoft.com/v9.0/products?market=US&locale=en-US&deviceFamily=Windows.Desktop"
                 async with httpx.AsyncClient(timeout=10) as client:
-                    resp = await client.get(url)
+                    resp = await client.post(url, json={"pfns": [row["xbox_pfn"]]},
+                                             headers={"Content-Type": "application/json"})
                 if resp.status_code != 200:
                     log.warning("Xbox store lookup %s: HTTP %d — %s", row["xbox_pfn"], resp.status_code, resp.text[:200])
                     return
@@ -775,9 +776,9 @@ async def xbox_store_debug():
     if not row:
         return {"error": "No Xbox games with pfn in DB — run a sync first"}
     pfn = row["xbox_pfn"]
-    url = f"https://storeedgefd.dsx.mp.microsoft.com/v9.0/products?market=US&locale=en-US&deviceFamily=Windows.Desktop&pfns={pfn}"
+    url = "https://storeedgefd.dsx.mp.microsoft.com/v9.0/products?market=US&locale=en-US&deviceFamily=Windows.Desktop"
     async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.get(url)
+        resp = await client.post(url, json={"pfns": [pfn]}, headers={"Content-Type": "application/json"})
     return {
         "game": row["name"],
         "pfn": pfn,
