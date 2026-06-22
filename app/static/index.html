@@ -163,7 +163,7 @@
   .pct-val { font-size: 0.7rem; letter-spacing: 0.08em; color: var(--muted2); }
   .pct-val.full { color: var(--cyan); }
 
-  .plat-badge {
+  .plat-badge, a.plat-badge {
     display: inline-flex;
     align-items: center;
     gap: 5px;
@@ -178,6 +178,8 @@
   .plat-badge.ra { background: #1a1a2e; border-color: #333; color: var(--muted2); }
   .plat-badge.xbox { background: #0e3d0e; border-color: #107c10; color: #4ec94e; }
   .plat-badge img { width: 12px; height: 12px; }
+  a.plat-badge { text-decoration: none; cursor: pointer; }
+  a.plat-badge:hover { opacity: 0.8; }
 
   /* ── Pagination ── */
   .scroll-sentinel { height: 1px; }
@@ -955,10 +957,17 @@ async function loadGameDetail(id) {
     ? `<div class="game-hero-cover"><img src="${bannerUrl}" alt="" onerror="this.outerHTML='<div class=game-hero-cover-ph>◈</div>'"></div>`
     : `<div class="game-hero-cover-ph">◈</div>`;
 
+  const storeUrl = game.platform === 'steam'
+    ? `https://store.steampowered.com/app/${game.platform_app_id}`
+    : game.platform === 'xbox'
+    ? `https://www.xbox.com/en-US/games/store/-/${game.platform_app_id}`
+    : `https://retroachievements.org/game/${game.platform_app_id}`;
+  const storeLabel = game.platform === 'steam' ? 'Steam Store' : game.platform === 'xbox' ? 'Xbox Store' : 'RetroAchievements';
   const badge = game.platform === 'steam'
-    ? `<span class="plat-badge"><img src="https://store.steampowered.com/favicon.ico" alt="">Steam</span>`
-    : game.platform === 'xbox' ? `<span class="plat-badge xbox">Xbox</span>`
-    : `<span class="plat-badge ra">RetroAchievements</span>`;
+    ? `<a class="plat-badge" href="${storeUrl}" target="_blank" rel="noopener"><img src="https://store.steampowered.com/favicon.ico" alt="">Steam</a>`
+    : game.platform === 'xbox'
+    ? `<a class="plat-badge xbox" href="${storeUrl}" target="_blank" rel="noopener">Xbox</a>`
+    : `<a class="plat-badge ra" href="${storeUrl}" target="_blank" rel="noopener">RetroAchievements</a>`;
 
   const hltbMain     = fmtHLTB(game.hltb_main);
   const hltbExtra    = fmtHLTB(game.hltb_extra);
