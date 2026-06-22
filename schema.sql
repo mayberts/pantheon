@@ -39,6 +39,7 @@ ALTER TABLE platform_games ADD COLUMN IF NOT EXISTS hltb_extra    NUMERIC;
 ALTER TABLE platform_games ADD COLUMN IF NOT EXISTS hltb_complete NUMERIC;
 ALTER TABLE platform_games ADD COLUMN IF NOT EXISTS igdb_id       BIGINT REFERENCES igdb_games(id);
 ALTER TABLE platform_games ADD COLUMN IF NOT EXISTS store_id      TEXT;
+ALTER TABLE platform_games ADD COLUMN IF NOT EXISTS xbox_pfn      TEXT;
 
 CREATE TABLE IF NOT EXISTS achievements (
     id                  SERIAL PRIMARY KEY,

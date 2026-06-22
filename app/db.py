@@ -57,20 +57,22 @@ async def upsert_linked_account(conn, platform: str, external_id: str) -> int:
 
 async def upsert_platform_game(conn, platform: str, platform_app_id: str, name: str,
                                 icon_url: str | None, total_achievements: int,
-                                store_id: str | None = None) -> int:
+                                store_id: str | None = None,
+                                xbox_pfn: str | None = None) -> int:
     row = await _fetchrow(
         conn,
         """
-        INSERT INTO platform_games (platform, platform_app_id, name, icon_url, total_achievements, store_id)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO platform_games (platform, platform_app_id, name, icon_url, total_achievements, store_id, xbox_pfn)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         ON CONFLICT (platform, platform_app_id) DO UPDATE
             SET name = EXCLUDED.name,
                 icon_url = EXCLUDED.icon_url,
                 total_achievements = EXCLUDED.total_achievements,
-                store_id = COALESCE(EXCLUDED.store_id, platform_games.store_id)
+                store_id = COALESCE(platform_games.store_id, EXCLUDED.store_id),
+                xbox_pfn = COALESCE(platform_games.xbox_pfn, EXCLUDED.xbox_pfn)
         RETURNING id
         """,
-        platform, platform_app_id, name, icon_url, total_achievements, store_id,
+        platform, platform_app_id, name, icon_url, total_achievements, store_id, xbox_pfn,
     )
     return row["id"]
 
@@ -149,6 +151,13 @@ async def set_igdb_id(conn, platform_game_id: int, igdb_id: int) -> None:
     await conn.execute(
         "UPDATE platform_games SET igdb_id = %s WHERE id = %s",
         (igdb_id, platform_game_id),
+    )
+
+
+async def set_store_id(conn, platform_game_id: int, store_id: str) -> None:
+    await conn.execute(
+        "UPDATE platform_games SET store_id = %s WHERE id = %s",
+        (store_id, platform_game_id),
     )
 
 

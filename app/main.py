@@ -104,6 +104,46 @@ async def _enrich_hltb() -> None:
     await asyncio.gather(*[_lookup(row) for row in rows])
 
 
+async def _enrich_xbox_store_ids() -> None:
+    """Look up Microsoft Store product IDs for Xbox games that have a pfn but no store_id."""
+    import httpx
+    pool = await db.get_pool()
+    async with pool.connection() as conn:
+        rows = await _fetch(
+            conn,
+            "SELECT id, name, xbox_pfn FROM platform_games WHERE platform = 'xbox' AND xbox_pfn IS NOT NULL AND store_id IS NULL",
+        )
+    if not rows:
+        return
+    log.info("Xbox store enrichment: %d games to look up", len(rows))
+    sem = asyncio.Semaphore(5)
+
+    async def _lookup(row):
+        async with sem:
+            try:
+                url = f"https://storeedgefd.dsx.mp.microsoft.com/v9.0/packageManifests/{row['xbox_pfn']}?market=US&locale=en-US&deviceFamily=Windows.Desktop"
+                async with httpx.AsyncClient(timeout=10) as client:
+                    resp = await client.get(url)
+                if resp.status_code != 200:
+                    return
+                data = resp.json()
+                big_id = (data.get("data") or {}).get("bigId") or (data.get("bigId"))
+                if not big_id:
+                    # try alternate path
+                    products = data.get("products") or []
+                    if products:
+                        big_id = products[0].get("productId")
+                if big_id:
+                    async with pool.connection() as conn:
+                        await db.set_store_id(conn, row["id"], big_id)
+                    log.info("Xbox store ID found for '%s': %s", row["name"], big_id)
+                await asyncio.sleep(config.REQUEST_DELAY_SECONDS)
+            except Exception:
+                log.exception("Xbox store lookup failed for %s", row["name"])
+
+    await asyncio.gather(*[_lookup(row) for row in rows])
+
+
 async def run_sync() -> None:
     if _sync_lock.locked():
         log.info("Sync already running, skipping")
@@ -158,6 +198,7 @@ async def run_sync() -> None:
         _sync_progress["running"] = False
         asyncio.create_task(_enrich_hltb())
         asyncio.create_task(_enrich_igdb())
+        asyncio.create_task(_enrich_xbox_store_ids())
 
 
 @asynccontextmanager
