@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS platform_games (
 ALTER TABLE platform_games ADD COLUMN IF NOT EXISTS hltb_main     NUMERIC;
 ALTER TABLE platform_games ADD COLUMN IF NOT EXISTS hltb_extra    NUMERIC;
 ALTER TABLE platform_games ADD COLUMN IF NOT EXISTS hltb_complete NUMERIC;
+ALTER TABLE platform_games ADD COLUMN IF NOT EXISTS igdb_id       BIGINT REFERENCES igdb_games(id);
 
 CREATE TABLE IF NOT EXISTS achievements (
     id                  SERIAL PRIMARY KEY,

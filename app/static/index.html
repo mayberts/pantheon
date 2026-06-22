@@ -754,7 +754,7 @@ function gameCardHTML(g) {
   const full = pct >= 100;
   const bannerUrl = g.platform === 'steam'
     ? `https://cdn.akamai.steamstatic.com/steam/apps/${g.platform_app_id}/header.jpg`
-    : g.icon_url;
+    : g.igdb_cover_url || g.icon_url;
 
   const banner = bannerUrl
     ? `<img class="game-card-banner" src="${bannerUrl}" alt="" onerror="this.outerHTML='<div class=game-card-banner-ph>◈</div>'">`
@@ -860,12 +860,11 @@ async function loadGameDetail(id) {
 
   const pct = parseFloat(game.completion_pct) || 0;
   const full = pct >= 100;
-  let bannerUrl = game.icon_url;
+  let bannerUrl;
   if (game.platform === 'steam') {
     bannerUrl = `https://cdn.akamai.steamstatic.com/steam/apps/${game.platform_app_id}/header.jpg`;
-  } else if (game.platform === 'xbox' && game.icon_url) {
-    // Use a wider variant of the store image if possible
-    bannerUrl = game.icon_url.replace(/\/image\/apps\.([^?]+)/, '/image/apps.$1') + '?w=460&h=215&q=90';
+  } else {
+    bannerUrl = game.igdb_cover_url || game.icon_url;
   }
 
   const cover = bannerUrl
