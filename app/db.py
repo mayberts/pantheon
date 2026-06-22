@@ -56,19 +56,21 @@ async def upsert_linked_account(conn, platform: str, external_id: str) -> int:
 
 
 async def upsert_platform_game(conn, platform: str, platform_app_id: str, name: str,
-                                icon_url: str | None, total_achievements: int) -> int:
+                                icon_url: str | None, total_achievements: int,
+                                store_id: str | None = None) -> int:
     row = await _fetchrow(
         conn,
         """
-        INSERT INTO platform_games (platform, platform_app_id, name, icon_url, total_achievements)
-        VALUES (%s, %s, %s, %s, %s)
+        INSERT INTO platform_games (platform, platform_app_id, name, icon_url, total_achievements, store_id)
+        VALUES (%s, %s, %s, %s, %s, %s)
         ON CONFLICT (platform, platform_app_id) DO UPDATE
             SET name = EXCLUDED.name,
                 icon_url = EXCLUDED.icon_url,
-                total_achievements = EXCLUDED.total_achievements
+                total_achievements = EXCLUDED.total_achievements,
+                store_id = COALESCE(EXCLUDED.store_id, platform_games.store_id)
         RETURNING id
         """,
-        platform, platform_app_id, name, icon_url, total_achievements,
+        platform, platform_app_id, name, icon_url, total_achievements, store_id,
     )
     return row["id"]
 
