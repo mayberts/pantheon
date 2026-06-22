@@ -27,7 +27,7 @@ _sync_progress: dict = {
 
 
 async def _enrich_igdb() -> None:
-    """Fetch IGDB cover art for games that don't have it yet."""
+    """Fetch IGDB cover art for games that don't have it yet (parallel with semaphore)."""
     if not config.IGDB_CLIENT_ID or not config.IGDB_CLIENT_SECRET:
         return
     from app.igdb import search_cover
@@ -38,28 +38,32 @@ async def _enrich_igdb() -> None:
             "SELECT id, name FROM platform_games WHERE igdb_id IS NULL AND total_achievements > 0",
         )
     log.info("IGDB enrichment: %d games to look up", len(rows))
-    for row in rows:
-        try:
-            result = await search_cover(row["name"])
-            if result:
-                igdb_id, cover_url = result
-                async with pool.connection() as conn:
-                    await db.upsert_igdb_game(conn, igdb_id, row["name"], cover_url)
-                    await db.set_igdb_id(conn, row["id"], igdb_id)
-                log.info("IGDB cover found for '%s'", row["name"])
-            else:
-                # Store a sentinel so we don't keep retrying
-                async with pool.connection() as conn:
-                    await conn.execute(
-                        "UPDATE platform_games SET igdb_id = -1 WHERE id = %s", (row["id"],)
-                    )
-            await asyncio.sleep(config.REQUEST_DELAY_SECONDS)
-        except Exception:
-            log.exception("IGDB lookup failed for %s", row["name"])
+    sem = asyncio.Semaphore(5)
+
+    async def _lookup(row):
+        async with sem:
+            try:
+                result = await search_cover(row["name"])
+                if result:
+                    igdb_id, cover_url = result
+                    async with pool.connection() as conn:
+                        await db.upsert_igdb_game(conn, igdb_id, row["name"], cover_url)
+                        await db.set_igdb_id(conn, row["id"], igdb_id)
+                    log.info("IGDB cover found for '%s'", row["name"])
+                else:
+                    async with pool.connection() as conn:
+                        await conn.execute(
+                            "UPDATE platform_games SET igdb_id = -1 WHERE id = %s", (row["id"],)
+                        )
+                await asyncio.sleep(config.REQUEST_DELAY_SECONDS)
+            except Exception:
+                log.exception("IGDB lookup failed for %s", row["name"])
+
+    await asyncio.gather(*[_lookup(row) for row in rows])
 
 
 async def _enrich_hltb() -> None:
-    """Fetch How Long To Beat times for any games that don't have them yet."""
+    """Fetch How Long To Beat times for games that don't have them yet (parallel with semaphore)."""
     try:
         from howlongtobeatpy import HowLongToBeat
     except ImportError:
@@ -74,28 +78,30 @@ async def _enrich_hltb() -> None:
         )
 
     log.info("HLTB enrichment: %d games to look up", len(rows))
-    hltb = HowLongToBeat(0.0)  # accept all similarities, filter manually
-    for row in rows:
-        try:
-            results = await hltb.async_search(row["name"])
-            if not results:
-                log.info("HLTB no results for: %s", row["name"])
-                # store zeros so we don't keep retrying games with no HLTB entry
+    hltb = HowLongToBeat(0.0)
+    sem = asyncio.Semaphore(3)
+
+    async def _lookup(row):
+        async with sem:
+            try:
+                results = await hltb.async_search(row["name"])
+                if not results:
+                    log.info("HLTB no results for: %s", row["name"])
+                    async with pool.connection() as conn:
+                        await db.update_hltb(conn, row["id"], -1, None, None)
+                    return
+                best = max(results, key=lambda r: r.similarity)
+                log.info("HLTB best match for '%s': '%s' (sim=%.2f)", row["name"], best.game_name, best.similarity)
+                main = float(best.main_story) if best.main_story and best.main_story > 0 else None
+                extra = float(best.main_extra) if best.main_extra and best.main_extra > 0 else None
+                complete = float(best.completionist) if best.completionist and best.completionist > 0 else None
                 async with pool.connection() as conn:
-                    await db.update_hltb(conn, row["id"], -1, None, None)
-                continue
-            best = max(results, key=lambda r: r.similarity)
-            log.info("HLTB best match for '%s': '%s' (sim=%.2f)", row["name"], best.game_name, best.similarity)
-            main = float(best.main_story) if best.main_story and best.main_story > 0 else None
-            extra = float(best.main_extra) if best.main_extra and best.main_extra > 0 else None
-            complete = float(best.completionist) if best.completionist and best.completionist > 0 else None
-            async with pool.connection() as conn:
-                await db.update_hltb(conn, row["id"], main or -1, extra, complete)
-            log.info("HLTB stored %s: main=%s extra=%s complete=%s",
-                     row["name"], main, extra, complete)
-            await asyncio.sleep(config.REQUEST_DELAY_SECONDS)
-        except Exception:
-            log.exception("HLTB lookup failed for %s", row["name"])
+                    await db.update_hltb(conn, row["id"], main or -1, extra, complete)
+                await asyncio.sleep(config.REQUEST_DELAY_SECONDS)
+            except Exception:
+                log.exception("HLTB lookup failed for %s", row["name"])
+
+    await asyncio.gather(*[_lookup(row) for row in rows])
 
 
 async def run_sync() -> None:
@@ -216,13 +222,26 @@ async def summary():
             GROUP BY pg.platform
             """,
         )
+        last_synced = await _fetch(
+            conn,
+            """
+            SELECT platform, MAX(finished_at) AS last_sync
+            FROM sync_runs
+            WHERE status = 'ok'
+            GROUP BY platform
+            """,
+        )
+    last_synced_map = {r["platform"]: r["last_sync"] for r in last_synced}
     return {
         "total_games": row["total_games"] or 0,
         "total_earned": int(row["total_earned"] or 0),
         "total_possible": int(row["total_possible"] or 0),
         "overall_pct": float(row["overall_pct"] or 0),
         "perfect_games": int(row["perfect_games"] or 0),
-        "by_platform": [dict(r) for r in by_platform],
+        "by_platform": [
+            {**dict(r), "last_sync": last_synced_map.get(r["platform"])}
+            for r in by_platform
+        ],
     }
 
 
