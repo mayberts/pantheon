@@ -23,6 +23,12 @@ class XboxPlatform(Platform):
         linked_id = await db.upsert_linked_account(conn, "xbox", xuid)
         earned_cache = await db.get_earned_counts(conn, linked_id)
 
+        # OpenXBL rate limit is 150 requests/period. Reserve 1 for the titles fetch
+        # and keep a small buffer; stop fetching detail once budget is spent so that
+        # subsequent syncs (which skip cached games for free) can fill in the rest.
+        _RATE_LIMIT = 148
+        detail_fetches = 0
+
         async with httpx.AsyncClient(timeout=30, headers=headers) as client:
             # Fetch all titles the player has played
             resp = await client.get(f"{_BASE}/achievements/player/{xuid}")
@@ -81,8 +87,15 @@ class XboxPlatform(Platform):
                 if earned_cache.get(title_id) == earned and total > 0:
                     continue
 
+                # Stop fetching detail once the rate-limit budget is exhausted.
+                # Cached games are skipped above for free, so subsequent syncs fill in the rest.
+                if detail_fetches >= _RATE_LIMIT:
+                    log.warning("Xbox sync: rate-limit budget reached, %d games deferred to next sync", 1)
+                    continue
+
                 # Fetch per-achievement detail for this title
                 await asyncio.sleep(delay)
+                detail_fetches += 1
                 achievements = []
                 ach_resp = await client.get(f"{_BASE}/achievements/player/{xuid}/{title_id}")
                 if ach_resp.status_code == 429:
