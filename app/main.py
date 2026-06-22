@@ -111,7 +111,7 @@ async def _enrich_xbox_store_ids() -> None:
     async with pool.connection() as conn:
         rows = await _fetch(
             conn,
-            "SELECT id, name, xbox_pfn FROM platform_games WHERE platform = 'xbox' AND xbox_pfn IS NOT NULL AND store_id IS NULL",
+            "SELECT id, name, xbox_pfn FROM platform_games WHERE platform = 'xbox' AND store_id IS NULL",
         )
     if not rows:
         return
