@@ -487,6 +487,7 @@ function _route(path, push) {
   if (push) history.pushState({path}, '', path);
   if (path === '/' || path === '/library') {
     _activatePage('library');
+    if (!document.getElementById('gameGrid').querySelector('.game-card')) loadGames();
   } else if (path === '/stats') {
     _activatePage('stats');
     loadStats();
@@ -658,7 +659,6 @@ async function showGame(id) { _route('/game/' + id, true); }
 // ── Init ─────────────────────────────────────────────────────────────────────
 
 loadSummary();
-loadGames();
 
 // ── Summary ───────────────────────────────────────────────────────────────────
 
@@ -1060,6 +1060,8 @@ function esc(s) {
   const path = window.location.pathname;
   history.replaceState({path}, '', path);
   _route(path, false);
+  // Load games on initial library page load
+  if (path === '/' || path === '/library' || path === '') loadGames();
   // Poll sync progress on load if sync is already running
   apiFetch('/api/sync/progress').then(data => {
     if (data && data.running) startSyncPoller();
