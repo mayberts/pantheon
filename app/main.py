@@ -26,6 +26,38 @@ _sync_progress: dict = {
 }
 
 
+async def _enrich_igdb() -> None:
+    """Fetch IGDB cover art for games that don't have it yet."""
+    if not config.IGDB_CLIENT_ID or not config.IGDB_CLIENT_SECRET:
+        return
+    from app.igdb import search_cover
+    pool = await db.get_pool()
+    async with pool.connection() as conn:
+        rows = await _fetch(
+            conn,
+            "SELECT id, name FROM platform_games WHERE igdb_id IS NULL AND total_achievements > 0",
+        )
+    log.info("IGDB enrichment: %d games to look up", len(rows))
+    for row in rows:
+        try:
+            result = await search_cover(row["name"])
+            if result:
+                igdb_id, cover_url = result
+                async with pool.connection() as conn:
+                    await db.upsert_igdb_game(conn, igdb_id, row["name"], cover_url)
+                    await db.set_igdb_id(conn, row["id"], igdb_id)
+                log.info("IGDB cover found for '%s'", row["name"])
+            else:
+                # Store a sentinel so we don't keep retrying
+                async with pool.connection() as conn:
+                    await conn.execute(
+                        "UPDATE platform_games SET igdb_id = -1 WHERE id = %s", (row["id"],)
+                    )
+            await asyncio.sleep(config.REQUEST_DELAY_SECONDS)
+        except Exception:
+            log.exception("IGDB lookup failed for %s", row["name"])
+
+
 async def _enrich_hltb() -> None:
     """Fetch How Long To Beat times for any games that don't have them yet."""
     try:
@@ -119,6 +151,7 @@ async def run_sync() -> None:
 
         _sync_progress["running"] = False
         asyncio.create_task(_enrich_hltb())
+        asyncio.create_task(_enrich_igdb())
 
 
 @asynccontextmanager
@@ -132,6 +165,7 @@ async def lifespan(app: FastAPI):
 
     asyncio.create_task(run_sync())
     asyncio.create_task(_enrich_hltb())
+    asyncio.create_task(_enrich_igdb())
 
     _scheduler.add_job(run_sync, "interval", hours=config.SYNC_INTERVAL_HOURS)
     _scheduler.start()
@@ -241,6 +275,7 @@ async def games(
                 pg.platform_app_id,
                 pg.name,
                 pg.icon_url,
+                ig.cover_url        AS igdb_cover_url,
                 ug.playtime_minutes,
                 ug.earned_achievements,
                 ug.total_achievements,
@@ -248,6 +283,7 @@ async def games(
                 ug.last_played_at
             FROM user_games ug
             JOIN platform_games pg ON pg.id = ug.platform_game_id
+            LEFT JOIN igdb_games ig ON ig.id = pg.igdb_id AND pg.igdb_id > 0
             {where}
             ORDER BY {order}
             LIMIT %s OFFSET %s
@@ -279,6 +315,7 @@ async def game_detail(platform_game_id: int):
                 pg.hltb_main,
                 pg.hltb_extra,
                 pg.hltb_complete,
+                ig.cover_url        AS igdb_cover_url,
                 ug.playtime_minutes,
                 ug.earned_achievements,
                 ug.total_achievements,
@@ -286,6 +323,7 @@ async def game_detail(platform_game_id: int):
                 ug.last_played_at
             FROM user_games ug
             JOIN platform_games pg ON pg.id = ug.platform_game_id
+            LEFT JOIN igdb_games ig ON ig.id = pg.igdb_id AND pg.igdb_id > 0
             WHERE pg.id = %s
             """,
             platform_game_id,

@@ -132,6 +132,24 @@ async def get_earned_counts(conn, linked_account_id: int) -> dict[str, int]:
     return {r["platform_app_id"]: r["earned_achievements"] for r in rows}
 
 
+async def upsert_igdb_game(conn, igdb_id: int, name: str, cover_url: str) -> None:
+    await conn.execute(
+        """
+        INSERT INTO igdb_games (id, name, cover_url)
+        VALUES (%s, %s, %s)
+        ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, cover_url = EXCLUDED.cover_url
+        """,
+        (igdb_id, name, cover_url),
+    )
+
+
+async def set_igdb_id(conn, platform_game_id: int, igdb_id: int) -> None:
+    await conn.execute(
+        "UPDATE platform_games SET igdb_id = %s WHERE id = %s",
+        (igdb_id, platform_game_id),
+    )
+
+
 async def update_hltb(conn, platform_game_id: int, main: float | None, extra: float | None, complete: float | None) -> None:
     await conn.execute(
         "UPDATE platform_games SET hltb_main=%s, hltb_extra=%s, hltb_complete=%s WHERE id=%s",
