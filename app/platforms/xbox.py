@@ -54,7 +54,7 @@ class XboxPlatform(Platform):
                 # Extract store product ID from vstoreLink if available
                 # e.g. "ms-windows-store://pdp/?productId=9NBLGGH4R315"
                 store_id = None
-                vstore = title.get("detail", {}).get("vstoreLink", "") or ""
+                vstore = (title.get("detail") or {}).get("vstoreLink", "") or ""
                 if "productId=" in vstore:
                     store_id = vstore.split("productId=")[-1].split("&")[0].strip() or None
 
