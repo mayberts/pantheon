@@ -135,8 +135,8 @@ async def _enrich_xbox_store_ids() -> None:
                 data = resp.json()
                 pfn_publisher = (row["xbox_pfn"] or "").split(".")[0].lower()
                 payload = data.get("Payload") or {}
-                products = (payload.get("SearchProducts") if isinstance(payload, dict) else None) or \
-                           data.get("SearchProducts") or data.get("Products") or data.get("products") or []
+                products = (payload.get("SearchResults") if isinstance(payload, dict) else None) or \
+                           data.get("SearchResults") or data.get("Products") or data.get("products") or []
                 if not isinstance(products, list):
                     log.warning("Xbox store search: unexpected response for '%s': %s", row["name"], str(data)[:300])
                     return
@@ -802,8 +802,8 @@ async def xbox_store_debug():
         return {"game": row["name"], "status_code": resp.status_code, "raw": resp.text[:1000]}
     data = resp.json()
     payload = data.get("Payload") or {}
-    products = (payload.get("SearchProducts") if isinstance(payload, dict) else None) or \
-               data.get("SearchProducts") or data.get("Products") or []
+    products = (payload.get("SearchResults") if isinstance(payload, dict) else None) or \
+               data.get("SearchResults") or data.get("Products") or []
     return {
         "game": row["name"],
         "clean_name": clean,
