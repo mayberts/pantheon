@@ -126,7 +126,7 @@ async def _enrich_xbox_store_ids() -> None:
                 clean = re.sub(r'[®™]', '', row["name"])
                 clean = re.sub(r'\s*-\s*(digital|standard|deluxe|gold|ultimate|premium|launch|legacy|hardened|vault|bundle|edition|pass).*$', '', clean, flags=re.IGNORECASE)
                 clean = re.sub(r'\s*\((windows|pc|xbox one|xbox series[^)]*)\)', '', clean, flags=re.IGNORECASE).strip()
-                url = f"https://storeedgefd.dsx.mp.microsoft.com/v9.0/search?market=US&locale=en-US&deviceFamily=Windows.Desktop&query={quote(clean)}&mediaType=apps"
+                url = f"https://storeedgefd.dsx.mp.microsoft.com/v9.0/search?market=US&locale=en-US&deviceFamily=Windows.Desktop&query={quote(clean)}&mediaType=Game"
                 async with httpx.AsyncClient(timeout=10) as client:
                     resp = await client.get(url)
                 if resp.status_code != 200:
@@ -792,7 +792,7 @@ async def xbox_store_debug():
     clean = re.sub(r'[®™]', '', row["name"])
     clean = re.sub(r'\s*-\s*(digital|standard|deluxe|gold|ultimate|premium|launch|legacy|hardened|vault|bundle|edition|pass).*$', '', clean, flags=re.IGNORECASE)
     clean = re.sub(r'\s*\((windows|pc|xbox one|xbox series[^)]*)\)', '', clean, flags=re.IGNORECASE).strip()
-    url = f"https://storeedgefd.dsx.mp.microsoft.com/v9.0/search?market=US&locale=en-US&deviceFamily=Windows.Desktop&query={quote(clean)}&mediaType=apps"
+    url = f"https://storeedgefd.dsx.mp.microsoft.com/v9.0/search?market=US&locale=en-US&deviceFamily=Windows.Desktop&query={quote(clean)}&mediaType=Game"
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.get(url)
     if resp.status_code != 200:
