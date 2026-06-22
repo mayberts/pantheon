@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from datetime import datetime, timezone
 
 import httpx
@@ -7,6 +8,7 @@ from app import config, db
 from app.platforms.base import Platform
 
 _BASE = "https://xbl.io/api/v2"
+log = logging.getLogger(__name__)
 
 
 class XboxPlatform(Platform):
@@ -80,10 +82,13 @@ class XboxPlatform(Platform):
                     continue
 
                 # Fetch per-achievement detail for this title
-                # The /achievements/player/ endpoint works for both modern and 360 games
                 await asyncio.sleep(delay)
                 achievements = []
                 ach_resp = await client.get(f"{_BASE}/achievements/player/{xuid}/{title_id}")
+                if ach_resp.status_code == 429:
+                    retry_after = ach_resp.json().get("retryAfter", "?")
+                    log.warning("OpenXBL rate limit hit; retryAfter=%s", retry_after)
+                    raise RuntimeError(f"OpenXBL rate limit exceeded — retry after {retry_after}s")
                 if ach_resp.status_code == 200:
                     ach_body = ach_resp.json()
                     content = ach_body.get("content")
