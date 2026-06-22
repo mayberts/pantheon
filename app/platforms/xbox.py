@@ -70,10 +70,11 @@ class XboxPlatform(Platform):
                     conn, linked_id, pg_id, 0, earned, total, last_played_at
                 )
 
-                if earned == 0:
+                if earned == 0 and total > 0:
                     continue
 
                 # Fetch per-achievement detail for this title
+                # (always needed for sourceVersion 2 games where total is still 0)
                 await asyncio.sleep(delay)
                 ach_resp = await client.get(
                     f"{_BASE}/achievements/player/{xuid}/{title_id}"
