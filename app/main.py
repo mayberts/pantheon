@@ -133,7 +133,7 @@ async def _enrich_xbox_store_ids() -> None:
                     log.warning("Xbox store search %s: HTTP %d — %s", row["name"], resp.status_code, resp.text[:200])
                     return
                 data = resp.json()
-                pfn_publisher = (row["xbox_pfn"] or "").split(".")[0].lower()
+                pfn = row["xbox_pfn"]
                 payload = data.get("Payload") or {}
                 products = (payload.get("SearchResults") if isinstance(payload, dict) else None) or \
                            data.get("SearchResults") or data.get("Products") or data.get("products") or []
@@ -142,15 +142,12 @@ async def _enrich_xbox_store_ids() -> None:
                     return
                 big_id = None
                 for p in products:
-                    pub = (p.get("PublisherName") or p.get("publisherName") or "").lower()
-                    pid = p.get("ProductId") or p.get("productId") or p.get("bigId")
-                    if pid and pfn_publisher and pfn_publisher in pub:
-                        big_id = pid
+                    pfns = p.get("PackageFamilyNames") or []
+                    if pfn in pfns:
+                        big_id = p.get("ProductId") or p.get("productId")
                         break
-                if not big_id and products:
-                    big_id = products[0].get("ProductId") or products[0].get("productId") or products[0].get("bigId")
                 if not big_id:
-                    log.warning("Xbox store search: no product ID for '%s': %s", row["name"], str(data)[:300])
+                    log.warning("Xbox store search: pfn '%s' not found in %d results for '%s'", pfn, len(products), row["name"])
                 if big_id:
                     async with pool.connection() as conn:
                         await db.set_store_id(conn, row["id"], big_id)
@@ -813,7 +810,9 @@ async def xbox_store_debug():
         "top_level_keys": list(data.keys()),
         "payload_keys": list(payload.keys()) if isinstance(payload, dict) else type(payload).__name__,
         "product_count": len(products) if isinstance(products, list) else None,
-        "first_result": products[0] if products else None,
+        "pfn_match": next((p.get("ProductId") for p in products if pfn in (p.get("PackageFamilyNames") or [])), None),
+        "all_pfns": [p.get("PackageFamilyNames") for p in products[:5]] if products else [],
+        "first_result_title": products[0].get("Title") if products else None,
     }
 
 
