@@ -16,6 +16,7 @@ class SteamPlatform(Platform):
         delay = config.REQUEST_DELAY_SECONDS
 
         linked_id = await db.upsert_linked_account(conn, "steam", steam_id)
+        earned_cache = await db.get_earned_counts(conn, linked_id)
 
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.get(
@@ -75,6 +76,10 @@ class SteamPlatform(Platform):
                 await db.upsert_user_game(
                     conn, linked_id, pg_id, playtime, earned, total, last_played
                 )
+
+                # Skip detail fetch if earned count hasn't changed
+                if earned_cache.get(app_id) == earned:
+                    continue
 
                 await asyncio.sleep(delay)
                 schema_resp = await client.get(

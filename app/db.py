@@ -117,6 +117,21 @@ async def upsert_achievement(conn, platform_game_id: int, platform_ach_id: str,
     return row["id"]
 
 
+async def get_earned_counts(conn, linked_account_id: int) -> dict[str, int]:
+    """Return {platform_app_id: earned_achievements} for a linked account."""
+    rows = await _fetch(
+        conn,
+        """
+        SELECT pg.platform_app_id, ug.earned_achievements
+        FROM user_games ug
+        JOIN platform_games pg ON pg.id = ug.platform_game_id
+        WHERE ug.linked_account_id = %s
+        """,
+        linked_account_id,
+    )
+    return {r["platform_app_id"]: r["earned_achievements"] for r in rows}
+
+
 async def update_hltb(conn, platform_game_id: int, main: float | None, extra: float | None, complete: float | None) -> None:
     await conn.execute(
         "UPDATE platform_games SET hltb_main=%s, hltb_extra=%s, hltb_complete=%s WHERE id=%s",

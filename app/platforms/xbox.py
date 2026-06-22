@@ -19,6 +19,7 @@ class XboxPlatform(Platform):
         delay = config.REQUEST_DELAY_SECONDS
 
         linked_id = await db.upsert_linked_account(conn, "xbox", xuid)
+        earned_cache = await db.get_earned_counts(conn, linked_id)
 
         async with httpx.AsyncClient(timeout=30, headers=headers) as client:
             # Fetch all titles the player has played
@@ -71,6 +72,10 @@ class XboxPlatform(Platform):
                 )
 
                 if earned == 0 and total > 0:
+                    continue
+
+                # Skip detail fetch if earned count hasn't changed and we already have the total
+                if earned_cache.get(title_id) == earned and total > 0:
                     continue
 
                 # Fetch per-achievement detail for this title
