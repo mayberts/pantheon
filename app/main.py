@@ -121,21 +121,22 @@ async def _enrich_xbox_store_ids() -> None:
     async def _lookup(row):
         async with sem:
             try:
-                # Clean name the same way the frontend does for search fallback
                 import re
+                from urllib.parse import quote
                 clean = re.sub(r'[®™]', '', row["name"])
                 clean = re.sub(r'\s*-\s*(digital|standard|deluxe|gold|ultimate|premium|launch|legacy|hardened|vault|bundle|edition|pass).*$', '', clean, flags=re.IGNORECASE)
                 clean = re.sub(r'\s*\((windows|pc|xbox one|xbox series[^)]*)\)', '', clean, flags=re.IGNORECASE).strip()
-                url = f"https://storeedgefd.dsx.mp.microsoft.com/v9.0/search?market=US&locale=en-US&deviceFamily=Windows.Desktop&query={clean}&mediaType=apps"
+                url = f"https://storeedgefd.dsx.mp.microsoft.com/v9.0/search?market=US&locale=en-US&deviceFamily=Windows.Desktop&query={quote(clean)}&mediaType=apps"
                 async with httpx.AsyncClient(timeout=10) as client:
                     resp = await client.get(url)
                 if resp.status_code != 200:
                     log.warning("Xbox store search %s: HTTP %d — %s", row["name"], resp.status_code, resp.text[:200])
                     return
                 data = resp.json()
-                # Extract publisher prefix from pfn (e.g. "Rebellion" from "Rebellion.Windscale_hash")
                 pfn_publisher = (row["xbox_pfn"] or "").split(".")[0].lower()
-                products = data.get("SearchProducts") or data.get("Products") or data.get("products") or []
+                payload = data.get("Payload") or {}
+                products = (payload.get("SearchProducts") if isinstance(payload, dict) else None) or \
+                           data.get("SearchProducts") or data.get("Products") or data.get("products") or []
                 if not isinstance(products, list):
                     log.warning("Xbox store search: unexpected response for '%s': %s", row["name"], str(data)[:300])
                     return
@@ -146,7 +147,6 @@ async def _enrich_xbox_store_ids() -> None:
                     if pid and pfn_publisher and pfn_publisher in pub:
                         big_id = pid
                         break
-                # Fallback: first result
                 if not big_id and products:
                     big_id = products[0].get("ProductId") or products[0].get("productId") or products[0].get("bigId")
                 if not big_id:
@@ -791,21 +791,29 @@ async def xbox_store_debug():
         return {"error": "No Xbox games with pfn in DB — run a sync first"}
     pfn = row["xbox_pfn"]
     import re
+    from urllib.parse import quote
     clean = re.sub(r'[®™]', '', row["name"])
     clean = re.sub(r'\s*-\s*(digital|standard|deluxe|gold|ultimate|premium|launch|legacy|hardened|vault|bundle|edition|pass).*$', '', clean, flags=re.IGNORECASE)
     clean = re.sub(r'\s*\((windows|pc|xbox one|xbox series[^)]*)\)', '', clean, flags=re.IGNORECASE).strip()
-    url = f"https://storeedgefd.dsx.mp.microsoft.com/v9.0/search?market=US&locale=en-US&deviceFamily=Windows.Desktop&query={clean}&mediaType=apps"
+    url = f"https://storeedgefd.dsx.mp.microsoft.com/v9.0/search?market=US&locale=en-US&deviceFamily=Windows.Desktop&query={quote(clean)}&mediaType=apps"
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.get(url)
+    if resp.status_code != 200:
+        return {"game": row["name"], "status_code": resp.status_code, "raw": resp.text[:1000]}
+    data = resp.json()
+    payload = data.get("Payload") or {}
+    products = (payload.get("SearchProducts") if isinstance(payload, dict) else None) or \
+               data.get("SearchProducts") or data.get("Products") or []
     return {
         "game": row["name"],
         "clean_name": clean,
         "pfn": pfn,
         "search_url": url,
         "status_code": resp.status_code,
-        "top_level_keys": list(resp.json().keys()) if resp.status_code == 200 else None,
-        "first_result": (resp.json().get("SearchProducts") or resp.json().get("Products") or [None])[0] if resp.status_code == 200 else None,
-        "raw_truncated": resp.text[:1000] if resp.status_code != 200 else None,
+        "top_level_keys": list(data.keys()),
+        "payload_keys": list(payload.keys()) if isinstance(payload, dict) else type(payload).__name__,
+        "product_count": len(products) if isinstance(products, list) else None,
+        "first_result": products[0] if products else None,
     }
 
 
