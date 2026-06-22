@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import config, db
@@ -603,6 +604,11 @@ async def status():
         "accounts": [dict(r) for r in accounts],
         "recent_runs": [dict(r) for r in runs],
     }
+
+
+@app.get("/{full_path:path}", include_in_schema=False)
+async def spa_fallback(full_path: str):
+    return FileResponse("app/static/index.html")
 
 
 app.mount("/", StaticFiles(directory="app/static", html=True), name="static")
