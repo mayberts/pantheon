@@ -88,6 +88,19 @@
   .platform-card .p-stat .val { font-size: 1.1rem; font-weight: 700; }
   .platform-card .p-stat .lbl { font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted2); }
   .platform-card .p-sync { font-size: 0.65rem; color: var(--muted2); margin-top: 8px; }
+  .stats-callouts { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 16px; }
+  .callout-card { background: var(--bg2); border: 1px solid var(--border); padding: 16px 22px; flex: 1; min-width: 200px; }
+  .callout-card .c-val { font-size: 1.6rem; font-weight: 700; font-family: 'Share Tech Mono', monospace; color: var(--cyan); line-height: 1.1; }
+  .callout-card .c-label { font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted2); margin-top: 4px; }
+  .callout-card .c-sub { font-size: 0.72rem; color: var(--muted2); margin-top: 6px; }
+  .callout-card.amber .c-val { color: var(--amber); }
+  .callout-card.green .c-val { color: var(--green); }
+  .pm-game { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .pm-game:hover { background: var(--bg2); margin: 0 -4px; padding-left: 4px; padding-right: 4px; }
+  .pm-game:last-child { border-bottom: none; }
+  .pm-img { width: 48px; height: 28px; object-fit: cover; flex-shrink: 0; background: var(--bg2); }
+  .pm-name { flex: 1; font-size: 0.82rem; font-weight: 600; }
+  .pm-pct { font-size: 0.8rem; color: var(--cyan); font-family: 'Share Tech Mono', monospace; min-width: 40px; text-align: right; }
   .p-bar { height: 2px; background: var(--border2); margin-top: 10px; }
   .p-bar .fill { height: 100%; background: var(--cyan-dim); }
 
@@ -424,10 +437,13 @@
     </div>
   </div>
 
+  <!-- Streak + best month callouts -->
+  <div class="stats-callouts" id="statsCallouts"></div>
+
   <!-- Platform bar -->
   <div class="stats-full-card">
     <div class="stats-card-title">Achievements By Platform</div>
-    <div class="stats-card-sub">Achievements breakdown by platform</div>
+    <div class="stats-card-sub">Click a platform to see top games</div>
     <div class="chart-wrap" style="max-width:600px;margin-top:12px"><canvas id="platformChart"></canvas></div>
   </div>
 
@@ -592,6 +608,30 @@ async function loadStats() {
     options: chartOpts({ showLabels: true }),
   });
 
+  // Streak + best month callouts
+  const callouts = document.getElementById('statsCallouts');
+  if (callouts) {
+    const fmtDate = s => s ? new Date(s).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'}) : '—';
+    const fmtMonth = s => s ? new Date(s).toLocaleDateString('en-GB', {month:'long',year:'numeric'}) : '—';
+    callouts.innerHTML = [
+      g.best_streak_days ? `<div class="callout-card green">
+        <div class="c-val">${g.best_streak_days} day${g.best_streak_days!==1?'s':''}</div>
+        <div class="c-label">Best Achievement Streak</div>
+        <div class="c-sub">${fmtDate(g.best_streak_start)} – ${fmtDate(g.best_streak_end)}</div>
+      </div>` : '',
+      g.best_month_cnt ? `<div class="callout-card amber">
+        <div class="c-val">${g.best_month_cnt.toLocaleString()}</div>
+        <div class="c-label">Most Productive Month</div>
+        <div class="c-sub">${fmtMonth(g.best_month)}</div>
+      </div>` : '',
+      g.daily_max ? `<div class="callout-card">
+        <div class="c-val">${g.daily_max.toLocaleString()}</div>
+        <div class="c-label">Best Single Day</div>
+        <div class="c-sub">${fmtDate(g.best_day)}</div>
+      </div>` : '',
+    ].join('');
+  }
+
   // Platform bar chart
   destroyChart('platformChart');
   charts['platformChart'] = new Chart(document.getElementById('platformChart'), {
@@ -606,7 +646,18 @@ async function loadStats() {
         borderRadius: 2,
       }]
     },
-    options: chartOpts({ showLabels: true }),
+    options: {
+      ...chartOpts({ showLabels: true }),
+      onClick: (evt, els) => {
+        if (!els.length) return;
+        const plat = d.platforms[els[0].index].platform;
+        openPlatformModal(plat);
+      },
+      plugins: {
+        ...chartOpts({ showLabels: true }).plugins,
+        tooltip: { callbacks: { label: ctx => ' ' + ctx.parsed.y.toLocaleString() + ' achievements' } },
+      },
+    },
   });
 
   // Progression line chart
@@ -627,6 +678,34 @@ async function loadStats() {
     },
     options: chartOpts({ showLabels: false }),
   });
+}
+
+async function openPlatformModal(platform) {
+  const modal = document.getElementById('platformModal');
+  const title = document.getElementById('platformModalTitle');
+  const body = document.getElementById('platformModalBody');
+  title.textContent = platLabel(platform) + ' — Top Games';
+  body.innerHTML = '<div class="ach-loading-row">Loading…</div>';
+  modal.style.display = 'block';
+  document.body.style.overflow = 'hidden';
+  const games = await apiFetch('/api/statistics/platform/' + encodeURIComponent(platform));
+  if (!games) { body.innerHTML = '<div class="ach-loading-row">Failed to load.</div>'; return; }
+  body.innerHTML = games.map(g => {
+    const img = g.platform === 'steam'
+      ? `https://cdn.akamai.steamstatic.com/steam/apps/${g.platform_app_id}/header.jpg`
+      : g.igdb_cover_url || g.icon_url || '';
+    return `<div class="pm-game" onclick="closePlatformModal();showGame(${g.platform_game_id})">
+      ${img ? `<img class="pm-img" src="${img}" onerror="this.style.display='none'">` : '<div class="pm-img"></div>'}
+      <div class="pm-name">${esc(g.name)}</div>
+      <div style="font-size:0.72rem;color:var(--muted2);margin-right:8px">${g.earned_achievements}/${g.total_achievements}</div>
+      <div class="pm-pct">${parseFloat(g.completion_pct)||0}%</div>
+    </div>`;
+  }).join('') || '<div class="ach-loading-row">No games found.</div>';
+}
+
+function closePlatformModal() {
+  document.getElementById('platformModal').style.display = 'none';
+  document.body.style.overflow = '';
 }
 
 function genRow(val, label, cls) {
@@ -1068,5 +1147,14 @@ function esc(s) {
   });
 })();
 </script>
+<div id="platformModal" style="display:none;position:fixed;inset:0;z-index:1000;background:#000a;overflow-y:auto" onclick="if(event.target===this)closePlatformModal()">
+  <div style="max-width:780px;margin:48px auto;background:var(--surface1);border:1px solid var(--border);padding:24px 28px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div id="platformModalTitle" style="font-size:1rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--cyan)"></div>
+      <button onclick="closePlatformModal()" style="background:none;border:none;color:var(--muted2);font-size:1.2rem;cursor:pointer">✕</button>
+    </div>
+    <div id="platformModalBody"></div>
+  </div>
+</div>
 </body>
 </html>

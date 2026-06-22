@@ -496,6 +496,49 @@ async def statistics():
                 """,
             )
 
+            best_day_row = await _fetchrow(
+                conn,
+                """
+                SELECT unlocked_at::date AS day, COUNT(*) AS cnt
+                FROM user_achievements
+                WHERE unlocked = true AND unlocked_at IS NOT NULL
+                GROUP BY unlocked_at::date
+                ORDER BY cnt DESC LIMIT 1
+                """,
+            )
+
+            best_month_row = await _fetchrow(
+                conn,
+                """
+                SELECT DATE_TRUNC('month', unlocked_at)::date AS month, COUNT(*) AS cnt
+                FROM user_achievements
+                WHERE unlocked = true AND unlocked_at IS NOT NULL
+                GROUP BY DATE_TRUNC('month', unlocked_at)::date
+                ORDER BY cnt DESC LIMIT 1
+                """,
+            )
+
+            streak_row = await _fetchrow(
+                conn,
+                """
+                WITH daily AS (
+                    SELECT DISTINCT unlocked_at::date AS day
+                    FROM user_achievements
+                    WHERE unlocked = true AND unlocked_at IS NOT NULL
+                ),
+                grouped AS (
+                    SELECT day, day - (ROW_NUMBER() OVER (ORDER BY day))::int AS grp
+                    FROM daily
+                ),
+                streaks AS (
+                    SELECT MIN(day) AS start, MAX(day) AS finish,
+                           COUNT(*) AS days
+                    FROM grouped GROUP BY grp
+                )
+                SELECT start, finish, days FROM streaks ORDER BY days DESC LIMIT 1
+                """,
+            )
+
         cum, total = [], 0
         for r in progression:
             total += r["cnt"]
@@ -515,6 +558,12 @@ async def statistics():
                 "absolute_completion": float(general["absolute_completion"] or 0),
                 "daily_max":          int(daily_max["cnt"]) if daily_max else 0,
                 "monthly_max":        int(monthly_max["cnt"]) if monthly_max else 0,
+                "best_day":           best_day_row["day"].isoformat() if best_day_row else None,
+                "best_month":         best_month_row["month"].isoformat() if best_month_row else None,
+                "best_month_cnt":     int(best_month_row["cnt"]) if best_month_row else 0,
+                "best_streak_days":   int(streak_row["days"]) if streak_row else 0,
+                "best_streak_start":  streak_row["start"].isoformat() if streak_row else None,
+                "best_streak_end":    streak_row["finish"].isoformat() if streak_row else None,
             },
             "rarity": [{"tier": r["tier"], "cnt": r["cnt"]} for r in rarity_rows],
             "completion_dist": [{"bracket": b, "cnt": dist_map.get(b, 0)} for b in bracket_order],
@@ -524,6 +573,29 @@ async def statistics():
     except Exception:
         log.exception("statistics endpoint failed")
         raise
+
+
+@app.get("/api/statistics/platform/{platform}")
+async def statistics_platform(platform: str):
+    """Top games by completion for a platform, for the drilldown modal."""
+    pool = await db.get_pool()
+    async with pool.connection() as conn:
+        rows = await _fetch(
+            conn,
+            """
+            SELECT pg.id AS platform_game_id, pg.name, pg.icon_url,
+                   ig.cover_url AS igdb_cover_url, pg.platform_app_id,
+                   ug.earned_achievements, ug.total_achievements, ug.completion_pct
+            FROM user_games ug
+            JOIN platform_games pg ON pg.id = ug.platform_game_id
+            LEFT JOIN igdb_games ig ON ig.id = pg.igdb_id AND pg.igdb_id > 0
+            WHERE pg.platform = %s AND ug.total_achievements > 0
+            ORDER BY ug.earned_achievements DESC
+            LIMIT 50
+            """,
+            platform,
+        )
+    return [dict(r) for r in rows]
 
 
 @app.get("/api/games/{platform_game_id}/achievements")
