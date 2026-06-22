@@ -17,6 +17,7 @@ class RetroAchievementsPlatform(Platform):
         auth = {"z": config.RA_USERNAME, "y": key}
 
         linked_id = await db.upsert_linked_account(conn, "retroachievements", username)
+        earned_cache = await db.get_earned_counts(conn, linked_id)
 
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.get(
@@ -40,6 +41,10 @@ class RetroAchievementsPlatform(Platform):
                     conn, "retroachievements", ra_id, name, icon_url, total
                 )
                 await db.upsert_user_game(conn, linked_id, pg_id, 0, earned, total, None)
+
+                # Skip detail fetch if earned count hasn't changed
+                if earned_cache.get(ra_id) == earned:
+                    continue
 
                 # Per-achievement detail
                 await asyncio.sleep(delay)
