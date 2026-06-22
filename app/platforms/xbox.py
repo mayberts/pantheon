@@ -51,6 +51,8 @@ class XboxPlatform(Platform):
 
                 icon_url = title.get("displayImage")
                 pfn = title.get("pfn") or None
+                devices = title.get("devices") or []
+                is_360 = devices == ["Xbox360"] or ach_info.get("sourceVersion") == 1
 
                 # Last played timestamp
                 last_played_at = None
@@ -78,11 +80,14 @@ class XboxPlatform(Platform):
                     continue
 
                 # Fetch per-achievement detail for this title
-                # (always needed for sourceVersion 2 games where total is still 0)
+                # Xbox 360 games use a different endpoint
                 await asyncio.sleep(delay)
-                ach_resp = await client.get(
-                    f"{_BASE}/achievements/player/{xuid}/{title_id}"
+                ach_url = (
+                    f"{_BASE}/achievements/x360/{xuid}/{title_id}"
+                    if is_360
+                    else f"{_BASE}/achievements/player/{xuid}/{title_id}"
                 )
+                ach_resp = await client.get(ach_url)
                 if ach_resp.status_code != 200:
                     continue
 
