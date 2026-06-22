@@ -87,6 +87,7 @@
   .platform-card .p-stats { display: flex; gap: 20px; }
   .platform-card .p-stat .val { font-size: 1.1rem; font-weight: 700; }
   .platform-card .p-stat .lbl { font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted2); }
+  .platform-card .p-sync { font-size: 0.65rem; color: var(--muted2); margin-top: 8px; }
   .p-bar { height: 2px; background: var(--border2); margin-top: 10px; }
   .p-bar .fill { height: 100%; background: var(--cyan-dim); }
 
@@ -675,7 +676,9 @@ async function loadSummary() {
     pg.innerHTML = '<div class="empty-state" style="width:100%">No record yet. Run a sync to pull your history.</div>';
     return;
   }
-  pg.innerHTML = d.by_platform.map(p => `
+  pg.innerHTML = d.by_platform.map(p => {
+    const syncedStr = p.last_sync ? 'Synced ' + fmt(p.last_sync) : 'Never synced';
+    return `
     <div class="platform-card">
       <div class="p-name">${platLabel(p.platform)}</div>
       <div class="p-stats">
@@ -684,7 +687,9 @@ async function loadSummary() {
         <div class="p-stat"><div class="val">${p.pct}%</div><div class="lbl">Complete</div></div>
       </div>
       <div class="p-bar"><div class="fill" style="width:${p.pct}%"></div></div>
-    </div>`).join('');
+      <div class="p-sync">${syncedStr}</div>
+    </div>`;
+  }).join('');
 }
 
 // ── Library ───────────────────────────────────────────────────────────────────
