@@ -141,22 +141,41 @@ async def _enrich_xbox_store_ids() -> None:
                 if not isinstance(products, list):
                     log.warning("Xbox store search: unexpected response for '%s': %s", row["name"], str(data)[:300])
                     return
+                def title_overlap(product_title: str) -> float:
+                    t = re.sub(r'[®™:\'\"!.,\-]', '', product_title).lower()
+                    t_words = set(t.split())
+                    return len(game_words & t_words) / len(game_words) if game_words else 0
+
+                game_words = set(w for w in re.sub(r'[®™:\'\"!.,\-]', '', clean_q).lower().split() if len(w) > 2)
+
+                # Also check HighlightedResults which are the most relevant hits
+                highlighted = (payload.get("HighlightedResults") if isinstance(payload, dict) else None) or []
+                all_candidates = list(highlighted) + list(products)
+
                 big_id = None
-                for p in products:
+                # Pass 1: exact pfn match with title check
+                for p in all_candidates:
                     pfns = p.get("PackageFamilyNames") or []
                     if pfn in pfns:
-                        # Verify the matched product title resembles our game name
-                        result_title = re.sub(r'[®™:\'\"!.,\-]', '', (p.get("Title") or "")).lower()
-                        game_words = set(w for w in re.sub(r'[®™:\'\"!.,\-]', '', clean_q).lower().split() if len(w) > 2)
-                        title_words = set(result_title.split())
-                        overlap = game_words & title_words
-                        if not game_words or len(overlap) / len(game_words) >= 0.4:
+                        if title_overlap(p.get("Title") or "") >= 0.4:
                             big_id = p.get("ProductId") or p.get("productId")
                         else:
-                            log.warning("Xbox store: pfn matched '%s' (product: '%s') but titles don't match — skipping", row["name"], p.get("Title"))
+                            log.warning("Xbox store: pfn matched '%s' (product: '%s') — title mismatch, trying name match", row["name"], p.get("Title"))
                         break
+
+                # Pass 2: title-only match (≥60% word overlap) — handles games whose pfn isn't in results
                 if not big_id:
-                    log.warning("Xbox store search: no confident match in %d results for '%s'", len(products), row["name"])
+                    best_score, best_pid = 0.0, None
+                    for p in all_candidates:
+                        score = title_overlap(p.get("Title") or "")
+                        pid = p.get("ProductId") or p.get("productId")
+                        if score > best_score and pid:
+                            best_score, best_pid = score, pid
+                    if best_score >= 0.6:
+                        big_id = best_pid
+                        log.info("Xbox store: title match (%.0f%%) for '%s'", best_score * 100, row["name"])
+                    else:
+                        log.warning("Xbox store: no confident match for '%s' (best score %.0f%%)", row["name"], best_score * 100)
                 if big_id:
                     async with pool.connection() as conn:
                         await db.set_store_id(conn, row["id"], big_id)
