@@ -125,14 +125,17 @@ async def _enrich_xbox_store_ids() -> None:
                 async with httpx.AsyncClient(timeout=10) as client:
                     resp = await client.get(url)
                 if resp.status_code != 200:
+                    log.warning("Xbox store lookup %s: HTTP %d — %s", row["xbox_pfn"], resp.status_code, resp.text[:200])
                     return
                 data = resp.json()
-                big_id = (data.get("data") or {}).get("bigId") or (data.get("bigId"))
+                log.info("Xbox store API keys for '%s': %s", row["name"], list(data.keys()))
+                big_id = (data.get("data") or {}).get("bigId") or data.get("bigId")
                 if not big_id:
-                    # try alternate path
                     products = data.get("products") or []
                     if products:
                         big_id = products[0].get("productId")
+                if not big_id:
+                    log.warning("Xbox store: no bigId in response for '%s': %s", row["name"], str(data)[:300])
                 if big_id:
                     async with pool.connection() as conn:
                         await db.set_store_id(conn, row["id"], big_id)
@@ -759,7 +762,31 @@ async def xbox_debug():
     }
 
 
-@app.get("/api/status")
+@app.get("/api/xbox-store-debug")
+async def xbox_store_debug():
+    """Test the Microsoft Store catalog API with a known pfn from the DB."""
+    import httpx
+    pool = await db.get_pool()
+    async with pool.connection() as conn:
+        row = await _fetchrow(
+            conn,
+            "SELECT id, name, xbox_pfn FROM platform_games WHERE platform = 'xbox' AND xbox_pfn IS NOT NULL LIMIT 1",
+        )
+    if not row:
+        return {"error": "No Xbox games with pfn in DB — run a sync first"}
+    pfn = row["xbox_pfn"]
+    url = f"https://storeedgefd.dsx.mp.microsoft.com/v9.0/packageManifests/{pfn}?market=US&locale=en-US&deviceFamily=Windows.Desktop"
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get(url)
+    return {
+        "game": row["name"],
+        "pfn": pfn,
+        "status_code": resp.status_code,
+        "top_level_keys": list(resp.json().keys()) if resp.status_code == 200 else None,
+        "raw": resp.json() if resp.status_code == 200 else resp.text[:1000],
+    }
+
+
 async def status():
     pool = await db.get_pool()
     async with pool.connection() as conn:
