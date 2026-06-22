@@ -83,6 +83,12 @@ class XboxPlatform(Platform):
                 if earned == 0 and total > 0:
                     continue
 
+                # OpenXBL does not return per-achievement detail for Xbox 360 games —
+                # the player endpoint returns 200 with an empty list. Skip the detail
+                # fetch and rely on the game-level earned/total counts from the titles list.
+                if is_360:
+                    continue
+
                 # Skip detail fetch if earned count hasn't changed and we already have the total
                 if earned_cache.get(title_id) == earned and total > 0:
                     continue
