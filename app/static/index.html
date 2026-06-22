@@ -957,10 +957,15 @@ async function loadGameDetail(id) {
     ? `<div class="game-hero-cover"><img src="${bannerUrl}" alt="" onerror="this.outerHTML='<div class=game-hero-cover-ph>◈</div>'"></div>`
     : `<div class="game-hero-cover-ph">◈</div>`;
 
+  const xboxSearchName = game.name
+    .replace(/[®™]/g, '')
+    .replace(/\s*-\s*(digital|standard|deluxe|gold|ultimate|premium|launch|legacy|hardened|vault|bundle|edition|pass).*$/i, '')
+    .replace(/\s*\((windows|pc|xbox one|xbox series[^)]*)\)/gi, '')
+    .trim();
   const storeUrl = game.platform === 'steam'
     ? `https://store.steampowered.com/app/${game.platform_app_id}`
     : game.platform === 'xbox'
-    ? `https://www.xbox.com/en-US/Search/Results?q=${encodeURIComponent(game.name)}`
+    ? `https://www.xbox.com/en-US/Search/Results?q=${encodeURIComponent(xboxSearchName)}`
     : `https://retroachievements.org/game/${game.platform_app_id}`;
   const storeLabel = game.platform === 'steam' ? 'Steam Store' : game.platform === 'xbox' ? 'Xbox Store' : 'RetroAchievements';
   const badge = game.platform === 'steam'
