@@ -145,10 +145,18 @@ async def _enrich_xbox_store_ids() -> None:
                 for p in products:
                     pfns = p.get("PackageFamilyNames") or []
                     if pfn in pfns:
-                        big_id = p.get("ProductId") or p.get("productId")
+                        # Verify the matched product title resembles our game name
+                        result_title = re.sub(r'[®™:\'\"!.,\-]', '', (p.get("Title") or "")).lower()
+                        game_words = set(w for w in re.sub(r'[®™:\'\"!.,\-]', '', clean_q).lower().split() if len(w) > 2)
+                        title_words = set(result_title.split())
+                        overlap = game_words & title_words
+                        if not game_words or len(overlap) / len(game_words) >= 0.4:
+                            big_id = p.get("ProductId") or p.get("productId")
+                        else:
+                            log.warning("Xbox store: pfn matched '%s' (product: '%s') but titles don't match — skipping", row["name"], p.get("Title"))
                         break
                 if not big_id:
-                    log.warning("Xbox store search: pfn '%s' not found in %d results for '%s'", pfn, len(products), row["name"])
+                    log.warning("Xbox store search: no confident match in %d results for '%s'", len(products), row["name"])
                 if big_id:
                     async with pool.connection() as conn:
                         await db.set_store_id(conn, row["id"], big_id)
