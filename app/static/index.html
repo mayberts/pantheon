@@ -834,9 +834,13 @@ async function loadGameDetail(id) {
 
   const pct = parseFloat(game.completion_pct) || 0;
   const full = pct >= 100;
-  const bannerUrl = game.platform === 'steam'
-    ? `https://cdn.akamai.steamstatic.com/steam/apps/${game.platform_app_id}/header.jpg`
-    : game.icon_url;
+  let bannerUrl = game.icon_url;
+  if (game.platform === 'steam') {
+    bannerUrl = `https://cdn.akamai.steamstatic.com/steam/apps/${game.platform_app_id}/header.jpg`;
+  } else if (game.platform === 'xbox' && game.icon_url) {
+    // Use a wider variant of the store image if possible
+    bannerUrl = game.icon_url.replace(/\/image\/apps\.([^?]+)/, '/image/apps.$1') + '?w=460&h=215&q=90';
+  }
 
   const cover = bannerUrl
     ? `<div class="game-hero-cover"><img src="${bannerUrl}" alt="" onerror="this.outerHTML='<div class=game-hero-cover-ph>◈</div>'"></div>`
@@ -844,7 +848,7 @@ async function loadGameDetail(id) {
 
   const badge = game.platform === 'steam'
     ? `<span class="plat-badge"><img src="https://store.steampowered.com/favicon.ico" alt="">Steam</span>`
-    : g.platform === 'xbox' ? `<span class="plat-badge xbox">Xbox</span>`
+    : game.platform === 'xbox' ? `<span class="plat-badge xbox">Xbox</span>`
     : `<span class="plat-badge ra">RetroAchievements</span>`;
 
   const hltbMain     = fmtHLTB(game.hltb_main);
@@ -862,8 +866,9 @@ async function loadGameDetail(id) {
   ).join('');
   const rarityHtml = rarityChips ? `<div class="hero-rarity">${rarityChips}</div>` : '';
 
+  const pointsLabel = game.platform === 'xbox' ? 'Gamerscore' : 'Points Earned';
   const pointsHtml = game.total_points
-    ? `<div class="hero-stat"><div class="val" style="color:var(--amber)">${game.total_points}</div><div class="lbl">Points Earned</div></div>`
+    ? `<div class="hero-stat"><div class="val" style="color:var(--amber)">${game.total_points}</div><div class="lbl">${pointsLabel}</div></div>`
     : '';
 
   document.getElementById('gameHero').innerHTML = `
