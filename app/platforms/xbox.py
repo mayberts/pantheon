@@ -23,10 +23,10 @@ class XboxPlatform(Platform):
         linked_id = await db.upsert_linked_account(conn, "xbox", xuid)
         earned_cache = await db.get_earned_counts(conn, linked_id)
 
-        # OpenXBL rate limit is 150 requests/period. Reserve 1 for the titles fetch
-        # and keep a small buffer; stop fetching detail once budget is spent so that
+        # OpenXBL rate limit (500/hour on Small plan). Reserve headroom for the titles
+        # fetch and buffer; stop fetching detail once budget is spent so that
         # subsequent syncs (which skip cached games for free) can fill in the rest.
-        _RATE_LIMIT = 148
+        _RATE_LIMIT = 490
         detail_fetches = 0
 
         async with httpx.AsyncClient(timeout=30, headers=headers) as client:
