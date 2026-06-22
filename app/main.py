@@ -562,6 +562,27 @@ async def xbox_xuid():
     return {"xuid": xuid, "gamertag": gamertag, "hint": "Add XBOX_XUID to your .env and restart"}
 
 
+@app.get("/api/xbox-debug")
+async def xbox_debug():
+    """Return raw OpenXBL titles response for debugging."""
+    if not config.XBOX_OPENXBL_KEY or not config.XBOX_XUID:
+        raise HTTPException(status_code=400, detail="XBOX_OPENXBL_KEY or XBOX_XUID not set")
+    import httpx
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.get(
+            f"https://xbl.io/api/v2/achievements/player/{config.XBOX_XUID}",
+            headers={"X-Authorization": config.XBOX_OPENXBL_KEY, "Accept": "application/json"},
+        )
+    return {
+        "status_code": resp.status_code,
+        "xuid": config.XBOX_XUID,
+        "top_level_keys": list(resp.json().keys()) if resp.status_code == 200 else None,
+        "title_count": len(resp.json().get("titles", [])) if resp.status_code == 200 else None,
+        "first_title": resp.json().get("titles", [None])[0] if resp.status_code == 200 else None,
+        "raw_truncated": resp.text[:500] if resp.status_code != 200 else None,
+    }
+
+
 @app.get("/api/status")
 async def status():
     pool = await db.get_pool()
