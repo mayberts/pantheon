@@ -810,25 +810,31 @@ async def xbox_debug():
 
 
 @app.get("/api/xbox-360-debug")
-async def xbox_360_debug():
-    """Fetch achievement detail for the first Xbox 360 game in the DB to inspect the API response."""
+async def xbox_360_debug(title_id: str | None = Query(default=None)):
+    """Fetch achievement detail for a 360 game via both endpoints. Pass ?title_id= to test a specific game."""
     if not config.XBOX_OPENXBL_KEY or not config.XBOX_XUID:
         raise HTTPException(status_code=400, detail="XBOX_OPENXBL_KEY or XBOX_XUID not set")
     import httpx
     pool = await db.get_pool()
-    async with pool.connection() as conn:
-        row = await _fetchrow(
-            conn,
-            """SELECT pg.platform_app_id, pg.name FROM platform_games pg
-               JOIN user_games ug ON ug.platform_game_id = pg.id
-               JOIN linked_accounts la ON la.id = ug.linked_account_id
-               WHERE pg.platform = 'xbox' AND la.external_id = %s
-                 AND ug.total_achievements > 0
-                 AND ug.earned_achievements > 0
-                 AND pg.xbox_pfn IS NULL
-               LIMIT 1""",
-            config.XBOX_XUID,
-        )
+    if title_id:
+        async with pool.connection() as conn:
+            row = await _fetchrow(conn, "SELECT platform_app_id, name FROM platform_games WHERE platform = 'xbox' AND platform_app_id = %s", title_id)
+        if not row:
+            row = {"platform_app_id": title_id, "name": f"(title {title_id})"}
+    else:
+        async with pool.connection() as conn:
+            row = await _fetchrow(
+                conn,
+                """SELECT pg.platform_app_id, pg.name FROM platform_games pg
+                   JOIN user_games ug ON ug.platform_game_id = pg.id
+                   JOIN linked_accounts la ON la.id = ug.linked_account_id
+                   WHERE pg.platform = 'xbox' AND la.external_id = %s
+                     AND ug.total_achievements > 0
+                     AND ug.earned_achievements > 0
+                     AND pg.xbox_pfn IS NULL
+                   LIMIT 1""",
+                config.XBOX_XUID,
+            )
     if not row:
         return {"error": "No Xbox 360 games found (games with earned achievements and no pfn)"}
     title_id = row["platform_app_id"]
