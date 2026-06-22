@@ -49,9 +49,14 @@ class XboxPlatform(Platform):
                 if total == 0 and total_gamerscore == 0:
                     continue
 
-                # Use the display image as icon
-                display_image = title.get("displayImage") or title.get("titleHistory", {}).get("lastTimePlayed")
                 icon_url = title.get("displayImage")
+
+                # Extract store product ID from vstoreLink if available
+                # e.g. "ms-windows-store://pdp/?productId=9NBLGGH4R315"
+                store_id = None
+                vstore = title.get("detail", {}).get("vstoreLink", "") or ""
+                if "productId=" in vstore:
+                    store_id = vstore.split("productId=")[-1].split("&")[0].strip() or None
 
                 # Last played timestamp
                 last_played_at = None
@@ -65,7 +70,7 @@ class XboxPlatform(Platform):
                         pass
 
                 pg_id = await db.upsert_platform_game(
-                    conn, "xbox", title_id, name, icon_url, total
+                    conn, "xbox", title_id, name, icon_url, total, store_id
                 )
                 await db.upsert_user_game(
                     conn, linked_id, pg_id, 0, earned, total, last_played_at
@@ -101,7 +106,7 @@ class XboxPlatform(Platform):
                 # For sourceVersion 2 games, derive total from actual achievement list
                 if total == 0 and achievements:
                     total = len(achievements)
-                    await db.upsert_platform_game(conn, "xbox", title_id, name, icon_url, total)
+                    await db.upsert_platform_game(conn, "xbox", title_id, name, icon_url, total, store_id)
                     await db.upsert_user_game(conn, linked_id, pg_id, 0, earned, total, last_played_at)
                 for ach in achievements:
                     self._inc("achievements_synced")
