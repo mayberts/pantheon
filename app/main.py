@@ -121,22 +121,36 @@ async def _enrich_xbox_store_ids() -> None:
     async def _lookup(row):
         async with sem:
             try:
-                url = "https://storeedgefd.dsx.mp.microsoft.com/v9.0/products?market=US&locale=en-US&deviceFamily=Windows.Desktop"
+                # Clean name the same way the frontend does for search fallback
+                import re
+                clean = re.sub(r'[®™]', '', row["name"])
+                clean = re.sub(r'\s*-\s*(digital|standard|deluxe|gold|ultimate|premium|launch|legacy|hardened|vault|bundle|edition|pass).*$', '', clean, flags=re.IGNORECASE)
+                clean = re.sub(r'\s*\((windows|pc|xbox one|xbox series[^)]*)\)', '', clean, flags=re.IGNORECASE).strip()
+                url = f"https://storeedgefd.dsx.mp.microsoft.com/v9.0/search?market=US&locale=en-US&deviceFamily=Windows.Desktop&query={clean}&mediaType=apps"
                 async with httpx.AsyncClient(timeout=10) as client:
-                    resp = await client.post(url, json={"pfns": [row["xbox_pfn"]]},
-                                             headers={"Content-Type": "application/json"})
+                    resp = await client.get(url)
                 if resp.status_code != 200:
-                    log.warning("Xbox store lookup %s: HTTP %d — %s", row["xbox_pfn"], resp.status_code, resp.text[:200])
+                    log.warning("Xbox store search %s: HTTP %d — %s", row["name"], resp.status_code, resp.text[:200])
                     return
                 data = resp.json()
-                log.info("Xbox store API response for '%s': %s", row["name"], str(data)[:500])
-                products = data.get("Products") or data.get("products") or []
-                if isinstance(products, list) and products:
+                # Extract publisher prefix from pfn (e.g. "Rebellion" from "Rebellion.Windscale_hash")
+                pfn_publisher = (row["xbox_pfn"] or "").split(".")[0].lower()
+                products = data.get("SearchProducts") or data.get("Products") or data.get("products") or []
+                if not isinstance(products, list):
+                    log.warning("Xbox store search: unexpected response for '%s': %s", row["name"], str(data)[:300])
+                    return
+                big_id = None
+                for p in products:
+                    pub = (p.get("PublisherName") or p.get("publisherName") or "").lower()
+                    pid = p.get("ProductId") or p.get("productId") or p.get("bigId")
+                    if pid and pfn_publisher and pfn_publisher in pub:
+                        big_id = pid
+                        break
+                # Fallback: first result
+                if not big_id and products:
                     big_id = products[0].get("ProductId") or products[0].get("productId") or products[0].get("bigId")
-                else:
-                    big_id = data.get("ProductId") or data.get("productId") or data.get("bigId")
                 if not big_id:
-                    log.warning("Xbox store: no product ID in response for '%s': %s", row["name"], str(data)[:300])
+                    log.warning("Xbox store search: no product ID for '%s': %s", row["name"], str(data)[:300])
                 if big_id:
                     async with pool.connection() as conn:
                         await db.set_store_id(conn, row["id"], big_id)
@@ -776,15 +790,22 @@ async def xbox_store_debug():
     if not row:
         return {"error": "No Xbox games with pfn in DB — run a sync first"}
     pfn = row["xbox_pfn"]
-    url = "https://storeedgefd.dsx.mp.microsoft.com/v9.0/products?market=US&locale=en-US&deviceFamily=Windows.Desktop"
+    import re
+    clean = re.sub(r'[®™]', '', row["name"])
+    clean = re.sub(r'\s*-\s*(digital|standard|deluxe|gold|ultimate|premium|launch|legacy|hardened|vault|bundle|edition|pass).*$', '', clean, flags=re.IGNORECASE)
+    clean = re.sub(r'\s*\((windows|pc|xbox one|xbox series[^)]*)\)', '', clean, flags=re.IGNORECASE).strip()
+    url = f"https://storeedgefd.dsx.mp.microsoft.com/v9.0/search?market=US&locale=en-US&deviceFamily=Windows.Desktop&query={clean}&mediaType=apps"
     async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.post(url, json={"pfns": [pfn]}, headers={"Content-Type": "application/json"})
+        resp = await client.get(url)
     return {
         "game": row["name"],
+        "clean_name": clean,
         "pfn": pfn,
+        "search_url": url,
         "status_code": resp.status_code,
         "top_level_keys": list(resp.json().keys()) if resp.status_code == 200 else None,
-        "raw": resp.json() if resp.status_code == 200 else resp.text[:1000],
+        "first_result": (resp.json().get("SearchProducts") or resp.json().get("Products") or [None])[0] if resp.status_code == 200 else None,
+        "raw_truncated": resp.text[:1000] if resp.status_code != 200 else None,
     }
 
 
