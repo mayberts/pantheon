@@ -80,17 +80,11 @@ class XboxPlatform(Platform):
                     continue
 
                 # Fetch per-achievement detail for this title
-                # Xbox 360 games may use a different endpoint; try both
+                # The /achievements/player/ endpoint works for both modern and 360 games
                 await asyncio.sleep(delay)
                 achievements = []
-                for ach_url in (
-                    [f"{_BASE}/achievements/x360/{xuid}/{title_id}", f"{_BASE}/achievements/player/{xuid}/{title_id}"]
-                    if is_360
-                    else [f"{_BASE}/achievements/player/{xuid}/{title_id}"]
-                ):
-                    ach_resp = await client.get(ach_url)
-                    if ach_resp.status_code != 200:
-                        continue
+                ach_resp = await client.get(f"{_BASE}/achievements/player/{xuid}/{title_id}")
+                if ach_resp.status_code == 200:
                     ach_body = ach_resp.json()
                     content = ach_body.get("content")
                     if ach_body.get("achievements"):
@@ -99,8 +93,6 @@ class XboxPlatform(Platform):
                         achievements = content
                     elif isinstance(content, dict):
                         achievements = content.get("achievements", [])
-                    if achievements:
-                        break
 
                 # For sourceVersion 2 games, derive total from actual achievement list
                 if total == 0 and achievements:
