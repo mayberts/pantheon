@@ -80,27 +80,27 @@ class XboxPlatform(Platform):
                     continue
 
                 # Fetch per-achievement detail for this title
-                # Xbox 360 games use a different endpoint
+                # Xbox 360 games may use a different endpoint; try both
                 await asyncio.sleep(delay)
-                ach_url = (
-                    f"{_BASE}/achievements/x360/{xuid}/{title_id}"
+                achievements = []
+                for ach_url in (
+                    [f"{_BASE}/achievements/x360/{xuid}/{title_id}", f"{_BASE}/achievements/player/{xuid}/{title_id}"]
                     if is_360
-                    else f"{_BASE}/achievements/player/{xuid}/{title_id}"
-                )
-                ach_resp = await client.get(ach_url)
-                if ach_resp.status_code != 200:
-                    continue
-
-                ach_body = ach_resp.json()
-                content = ach_body.get("content")
-                if ach_body.get("achievements"):
-                    achievements = ach_body["achievements"]
-                elif isinstance(content, list):
-                    achievements = content
-                elif isinstance(content, dict):
-                    achievements = content.get("achievements", [])
-                else:
-                    achievements = []
+                    else [f"{_BASE}/achievements/player/{xuid}/{title_id}"]
+                ):
+                    ach_resp = await client.get(ach_url)
+                    if ach_resp.status_code != 200:
+                        continue
+                    ach_body = ach_resp.json()
+                    content = ach_body.get("content")
+                    if ach_body.get("achievements"):
+                        achievements = ach_body["achievements"]
+                    elif isinstance(content, list):
+                        achievements = content
+                    elif isinstance(content, dict):
+                        achievements = content.get("achievements", [])
+                    if achievements:
+                        break
 
                 # For sourceVersion 2 games, derive total from actual achievement list
                 if total == 0 and achievements:
@@ -119,7 +119,7 @@ class XboxPlatform(Platform):
                             icon = media.get("url")
                             break
 
-                    # Gamerscore is in rewards list
+                    # Gamerscore: modern games use rewards list, 360 uses gamerScore field
                     points = None
                     for reward in ach.get("rewards", []):
                         if reward.get("type") == "Gamerscore":
@@ -128,6 +128,11 @@ class XboxPlatform(Platform):
                             except (TypeError, ValueError):
                                 pass
                             break
+                    if points is None and ach.get("gamerScore") is not None:
+                        try:
+                            points = int(ach["gamerScore"])
+                        except (TypeError, ValueError):
+                            pass
 
                     rarity_pct = None
                     rarity = ach.get("rarity", {})
@@ -137,10 +142,19 @@ class XboxPlatform(Platform):
                         except (TypeError, ValueError):
                             pass
 
-                    unlocked = ach.get("progressState") == "Achieved"
+                    # Unlock state: modern uses progressState, 360 uses isEarned
+                    unlocked = (
+                        ach.get("progressState") == "Achieved"
+                        or bool(ach.get("isEarned"))
+                        or bool(ach.get("isUnlocked"))
+                    )
                     unlocked_at = None
                     if unlocked:
-                        time_str = ach.get("progression", {}).get("timeUnlocked")
+                        time_str = (
+                            ach.get("progression", {}).get("timeUnlocked")
+                            or ach.get("dateEarned")
+                            or ach.get("timeEarned")
+                        )
                         if time_str and time_str != "0001-01-01T00:00:00Z":
                             try:
                                 unlocked_at = datetime.fromisoformat(
