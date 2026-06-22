@@ -121,21 +121,21 @@ async def _enrich_xbox_store_ids() -> None:
     async def _lookup(row):
         async with sem:
             try:
-                url = f"https://storeedgefd.dsx.mp.microsoft.com/v9.0/packageManifests/{row['xbox_pfn']}?market=US&locale=en-US&deviceFamily=Windows.Desktop"
+                url = f"https://storeedgefd.dsx.mp.microsoft.com/v9.0/products?market=US&locale=en-US&deviceFamily=Windows.Desktop&pfns={row['xbox_pfn']}"
                 async with httpx.AsyncClient(timeout=10) as client:
                     resp = await client.get(url)
                 if resp.status_code != 200:
                     log.warning("Xbox store lookup %s: HTTP %d — %s", row["xbox_pfn"], resp.status_code, resp.text[:200])
                     return
                 data = resp.json()
-                log.info("Xbox store API keys for '%s': %s", row["name"], list(data.keys()))
-                big_id = (data.get("data") or {}).get("bigId") or data.get("bigId")
+                log.info("Xbox store API response for '%s': %s", row["name"], str(data)[:500])
+                products = data.get("Products") or data.get("products") or []
+                if isinstance(products, list) and products:
+                    big_id = products[0].get("ProductId") or products[0].get("productId") or products[0].get("bigId")
+                else:
+                    big_id = data.get("ProductId") or data.get("productId") or data.get("bigId")
                 if not big_id:
-                    products = data.get("products") or []
-                    if products:
-                        big_id = products[0].get("productId")
-                if not big_id:
-                    log.warning("Xbox store: no bigId in response for '%s': %s", row["name"], str(data)[:300])
+                    log.warning("Xbox store: no product ID in response for '%s': %s", row["name"], str(data)[:300])
                 if big_id:
                     async with pool.connection() as conn:
                         await db.set_store_id(conn, row["id"], big_id)
@@ -775,7 +775,7 @@ async def xbox_store_debug():
     if not row:
         return {"error": "No Xbox games with pfn in DB — run a sync first"}
     pfn = row["xbox_pfn"]
-    url = f"https://storeedgefd.dsx.mp.microsoft.com/v9.0/packageManifests/{pfn}?market=US&locale=en-US&deviceFamily=Windows.Desktop"
+    url = f"https://storeedgefd.dsx.mp.microsoft.com/v9.0/products?market=US&locale=en-US&deviceFamily=Windows.Desktop&pfns={pfn}"
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.get(url)
     return {
