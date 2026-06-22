@@ -573,12 +573,15 @@ async def xbox_debug():
             f"https://xbl.io/api/v2/achievements/player/{config.XBOX_XUID}",
             headers={"X-Authorization": config.XBOX_OPENXBL_KEY, "Accept": "application/json"},
         )
+    body = resp.json() if resp.status_code == 200 else {}
+    titles = body.get("titles") or (body.get("content", {}).get("titles", []) if isinstance(body.get("content"), dict) else body.get("content") if isinstance(body.get("content"), list) else [])
     return {
         "status_code": resp.status_code,
         "xuid": config.XBOX_XUID,
-        "top_level_keys": list(resp.json().keys()) if resp.status_code == 200 else None,
-        "title_count": len(resp.json().get("titles", [])) if resp.status_code == 200 else None,
-        "first_title": resp.json().get("titles", [None])[0] if resp.status_code == 200 else None,
+        "top_level_keys": list(body.keys()) if body else None,
+        "content_type": type(body.get("content")).__name__ if "content" in body else None,
+        "title_count": len(titles),
+        "first_title": titles[0] if titles else None,
         "raw_truncated": resp.text[:500] if resp.status_code != 200 else None,
     }
 
