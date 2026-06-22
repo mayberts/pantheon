@@ -25,19 +25,27 @@ class XboxPlatform(Platform):
             resp = await client.get(f"{_BASE}/achievements/player/{xuid}")
             resp.raise_for_status()
             data = resp.json()
-            titles = data.get("titles") or data.get("content", {}).get("titles", [])
-            if not titles and "content" in data:
-                titles = data["content"] if isinstance(data["content"], list) else []
+            content = data.get("content")
+            if data.get("titles"):
+                titles = data["titles"]
+            elif isinstance(content, list):
+                titles = content
+            elif isinstance(content, dict):
+                titles = content.get("titles", [])
+            else:
+                titles = []
 
             for title in titles:
                 self._inc("games_seen")
                 title_id = str(title.get("titleId", ""))
                 name = title.get("name", f"Title {title_id}")
-                total = int(title.get("achievement", {}).get("totalAchievements", 0))
-                earned = int(title.get("achievement", {}).get("currentAchievements", 0))
-                gamerscore_earned = int(title.get("achievement", {}).get("currentGamerscore", 0))
+                ach_info = title.get("achievement", {})
+                total = int(ach_info.get("totalAchievements", 0))
+                earned = int(ach_info.get("currentAchievements", 0))
+                total_gamerscore = int(ach_info.get("totalGamerscore", 0))
 
-                if total == 0:
+                # sourceVersion 2 games have totalAchievements=0 but totalGamerscore>0
+                if total == 0 and total_gamerscore == 0:
                     continue
 
                 # Use the display image as icon
@@ -73,7 +81,22 @@ class XboxPlatform(Platform):
                 if ach_resp.status_code != 200:
                     continue
 
-                achievements = ach_resp.json().get("achievements", [])
+                ach_body = ach_resp.json()
+                content = ach_body.get("content")
+                if ach_body.get("achievements"):
+                    achievements = ach_body["achievements"]
+                elif isinstance(content, list):
+                    achievements = content
+                elif isinstance(content, dict):
+                    achievements = content.get("achievements", [])
+                else:
+                    achievements = []
+
+                # For sourceVersion 2 games, derive total from actual achievement list
+                if total == 0 and achievements:
+                    total = len(achievements)
+                    await db.upsert_platform_game(conn, "xbox", title_id, name, icon_url, total)
+                    await db.upsert_user_game(conn, linked_id, pg_id, 0, earned, total, last_played_at)
                 for ach in achievements:
                     self._inc("achievements_synced")
                     ach_id = str(ach.get("id", ""))
