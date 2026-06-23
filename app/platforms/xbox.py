@@ -103,30 +103,32 @@ class XboxPlatform(Platform):
                 await asyncio.sleep(delay)
 
                 if is_360:
-                    # For 360 titles the user endpoint only returns earned achievements.
-                    # Fetch the full title achievement list first, then overlay earned status.
-                    title_resp = await client.get(
-                        f"{_ACH}/titles/{title_id}/achievements",
-                        params={"maxItems": 1000},
-                        headers=_xbl_headers(tokens, contract="1"),
-                    )
-                    user_resp = await client.get(
-                        f"{_ACH}/users/xuid({xuid})/achievements",
-                        params={"titleId": title_id, "maxItems": 1000},
-                        headers=_xbl_headers(tokens, contract="1"),
-                    )
-                    if title_resp.status_code == 429 or user_resp.status_code == 429:
-                        log.warning("Xbox Live rate limit hit")
-                        raise RuntimeError("Xbox Live rate limit — try again later")
-                    if title_resp.status_code != 200:
-                        log.warning("360 title achievements fetch failed for %s: HTTP %d", name, title_resp.status_code)
-                        continue
-                    achievements = title_resp.json().get("achievements") or []
-                    # Build earned lookup by id
-                    earned_map = {}
-                    if user_resp.status_code == 200:
-                        for ua in (user_resp.json().get("achievements") or []):
-                            earned_map[str(ua.get("id", ""))] = ua
+                    # /titles/{id}/achievements returns 404 for 360 games.
+                    # User endpoint only returns earned achievements (no locked).
+                    # Paginate through all earned achievements.
+                    achievements = []
+                    continuation = None
+                    while True:
+                        params = {"titleId": title_id, "maxItems": 1000}
+                        if continuation:
+                            params["continuationToken"] = continuation
+                        ach_resp = await client.get(
+                            f"{_ACH}/users/xuid({xuid})/achievements",
+                            params=params,
+                            headers=_xbl_headers(tokens, contract="1"),
+                        )
+                        if ach_resp.status_code == 429:
+                            log.warning("Xbox Live rate limit hit")
+                            raise RuntimeError("Xbox Live rate limit — try again later")
+                        if ach_resp.status_code != 200:
+                            log.warning("360 achievements fetch failed for %s: HTTP %d", name, ach_resp.status_code)
+                            break
+                        data = ach_resp.json()
+                        achievements.extend(data.get("achievements") or [])
+                        continuation = (data.get("pagingInfo") or {}).get("continuationToken")
+                        if not continuation:
+                            break
+                    earned_map = {}  # not used for 360 — each ach IS earned
                 else:
                     ach_resp = await client.get(
                         f"{_ACH}/users/xuid({xuid})/achievements",
@@ -157,13 +159,16 @@ class XboxPlatform(Platform):
                     description = ach.get("description") or ach.get("lockedDescription")
 
                     icon = None
-                    # v2: mediaAssets list; v1: imageUrl top-level field
-                    for media in ach.get("mediaAssets") or []:
-                        if media.get("type") == "Icon":
-                            icon = media.get("url")
-                            break
-                    if not icon:
-                        icon = ach.get("imageUrl") or ach.get("image", {}).get("url")
+                    if is_360:
+                        # v1: imageId integer → construct CDN URL
+                        image_id = ach.get("imageId")
+                        if image_id is not None:
+                            icon = f"https://image-ssl.xboxlive.com/global/t.{title_id}/ach/0/{image_id}.png"
+                    else:
+                        for media in ach.get("mediaAssets") or []:
+                            if media.get("type") == "Icon":
+                                icon = media.get("url")
+                                break
 
                     points = None
                     for reward in ach.get("rewards") or []:
@@ -189,19 +194,17 @@ class XboxPlatform(Platform):
                             pass
 
                     if is_360:
-                        # earned_map has the user's earned achievements by id
-                        earned_ach = earned_map.get(ach_id)
-                        unlocked = earned_ach is not None
+                        # User endpoint only returns earned achievements for 360
+                        unlocked = True
+                        time_str = ach.get("timeUnlocked")
                         unlocked_at = None
-                        if unlocked:
-                            time_str = (earned_ach or {}).get("earnedDateTime")
-                            if time_str and time_str not in ("", "0001-01-01T00:00:00.0000000Z", "0001-01-01T00:00:00Z"):
-                                try:
-                                    unlocked_at = datetime.fromisoformat(
-                                        time_str.replace("Z", "+00:00")
-                                    )
-                                except ValueError:
-                                    pass
+                        if time_str and time_str not in ("", "0001-01-01T00:00:00.0000000Z", "0001-01-01T00:00:00Z"):
+                            try:
+                                unlocked_at = datetime.fromisoformat(
+                                    time_str.replace("Z", "+00:00")
+                                )
+                            except ValueError:
+                                pass
                     else:
                         unlocked = ach.get("progressState") == "Achieved"
                         unlocked_at = None
