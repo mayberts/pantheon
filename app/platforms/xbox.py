@@ -163,7 +163,7 @@ class XboxPlatform(Platform):
                         # v1: imageId integer → construct CDN URL
                         image_id = ach.get("imageId")
                         if image_id is not None:
-                            icon = f"https://image-ssl.xboxlive.com/global/t.{title_id}/ach/0/{image_id}.png"
+                            icon = f"https://image-ssl.xboxlive.com/global/t.{int(title_id):X}/ach/0/{image_id}.png"
                     else:
                         for media in ach.get("mediaAssets") or []:
                             if media.get("type") == "Icon":
