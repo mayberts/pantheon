@@ -755,6 +755,11 @@ async def xbox_360_debug(game_id: int):
             params={"titleId": title_id, "maxItems": 5},
             headers=_xbl_headers(tokens, contract="2"),
         )
+        title_v2_resp = await client.get(
+            f"{_ACH}/titles/{title_id}/achievements",
+            params={"maxItems": 5},
+            headers=_xbl_headers(tokens, contract="2"),
+        )
     return {
         "game_id": game_id,
         "xbox_title_id": title_id,
@@ -764,6 +769,8 @@ async def xbox_360_debug(game_id: int):
         "user_v1_sample": user_v1_resp.json() if user_v1_resp.status_code == 200 else user_v1_resp.text,
         "user_v2_status": user_v2_resp.status_code,
         "user_v2_sample": user_v2_resp.json() if user_v2_resp.status_code == 200 else user_v2_resp.text,
+        "title_v2_status": title_v2_resp.status_code,
+        "title_v2_sample": title_v2_resp.json() if title_v2_resp.status_code == 200 else title_v2_resp.text,
     }
 
 
