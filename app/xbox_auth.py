@@ -27,8 +27,7 @@ import httpx
 log = logging.getLogger(__name__)
 
 _DEVICE_CODE_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode"
-_DEVICE_TOKEN_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
-_MS_TOKEN_URL = "https://login.live.com/oauth20_token.srf"
+_MS_TOKEN_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
 _XBL_URL = "https://user.auth.xboxlive.com/user/authenticate"
 _XSTS_URL = "https://xsts.auth.xboxlive.com/xsts/authorize"
 
@@ -75,7 +74,7 @@ async def poll_device_flow(device_code: str) -> str | None:
     """
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.post(
-            _DEVICE_TOKEN_URL,
+            _MS_TOKEN_URL,
             data={
                 "client_id": _CLIENT_ID,
                 "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
