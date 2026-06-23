@@ -60,7 +60,7 @@ def get_auth_url() -> str:
     params = urlencode({
         "client_id": _CLIENT_ID,
         "response_type": "code",
-        "approval_prompt": "auto",
+        "prompt": "select_account",
         "scope": _SCOPE,
         "redirect_uri": _REDIRECT_URI,
     })
