@@ -678,11 +678,9 @@ async def trigger_sync():
 @app.get("/api/xbox-setup")
 async def xbox_setup():
     """Start the Xbox device-code auth flow. Returns a URL and code for the user to sign in."""
-    if not config.XBOX_CLIENT_ID:
-        raise HTTPException(status_code=400, detail="XBOX_CLIENT_ID not set in .env")
     from app.xbox_auth import start_device_flow
     try:
-        data = await start_device_flow(config.XBOX_CLIENT_ID)
+        data = await start_device_flow()
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Microsoft auth failed: {e}")
     return {
@@ -697,18 +695,16 @@ async def xbox_setup():
 @app.get("/api/xbox-setup-poll")
 async def xbox_setup_poll(device_code: str, interval: int = 5):
     """Poll for completion of the device code flow. Call repeatedly until status=done."""
-    if not config.XBOX_CLIENT_ID:
-        raise HTTPException(status_code=400, detail="XBOX_CLIENT_ID not set in .env")
     from app.xbox_auth import poll_device_flow, get_tokens, _save_refresh_token
     try:
-        refresh_token = await poll_device_flow(config.XBOX_CLIENT_ID, device_code)
+        refresh_token = await poll_device_flow(device_code)
     except RuntimeError as e:
         raise HTTPException(status_code=400, detail=str(e))
     if refresh_token is None:
         return {"status": "pending", "message": f"Still waiting — try again in {interval}s"}
     _save_refresh_token(refresh_token)
     try:
-        tokens = await get_tokens(config.XBOX_CLIENT_ID, refresh_token)
+        tokens = await get_tokens(refresh_token)
         xuid = tokens.xuid
     except Exception as e:
         xuid = "unknown"
