@@ -159,12 +159,7 @@ class XboxPlatform(Platform):
                     description = ach.get("description") or ach.get("lockedDescription")
 
                     icon = None
-                    if is_360:
-                        # v1: imageId integer → construct CDN URL
-                        image_id = ach.get("imageId")
-                        if image_id is not None:
-                            icon = f"https://image-ssl.xboxlive.com/global/t.{int(title_id):X}/ach/0/{image_id}.png"
-                    else:
+                    if not is_360:
                         for media in ach.get("mediaAssets") or []:
                             if media.get("type") == "Icon":
                                 icon = media.get("url")
