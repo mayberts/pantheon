@@ -96,21 +96,17 @@ class XboxPlatform(Platform):
                 if earned == 0 and total > 0:
                     continue
 
-                # Xbox 360 games: OpenXBL returned nothing; direct API also doesn't
-                # expose per-achievement detail for 360 titles.
-                if is_360:
-                    continue
-
                 # Skip if earned count unchanged and achievements already stored
                 if earned_cache.get(title_id) == earned and total > 0:
                     continue
 
-                # Fetch per-achievement detail
+                # Fetch per-achievement detail (contract v1 for 360, v2 for modern)
                 await asyncio.sleep(delay)
+                contract = "1" if is_360 else "2"
                 ach_resp = await client.get(
                     f"{_ACH}/users/xuid({xuid})/achievements",
                     params={"titleId": title_id, "maxItems": 1000},
-                    headers=_xbl_headers(tokens, contract="2"),
+                    headers=_xbl_headers(tokens, contract=contract),
                 )
                 if ach_resp.status_code == 429:
                     log.warning("Xbox Live rate limit hit")
