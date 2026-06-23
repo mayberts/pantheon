@@ -2,16 +2,21 @@
 Xbox Live authentication via Microsoft Live OAuth2 auth code flow.
 
 Setup (one-time):
+  0. Register a free Azure app:
+       portal.azure.com → App registrations → New registration
+       - Supported account types: Personal Microsoft accounts only
+       - Redirect URI platform: Mobile and desktop applications
+       - Redirect URI value: https://login.live.com/oauth20_desktop.srf
+       Copy the Application (client) ID and set XBOX_CLIENT_ID=<that UUID> in your .env
   1. Hit GET /api/xbox-setup — get a sign-in URL
   2. Open the URL in a browser, sign in with your Microsoft account
   3. After sign-in you'll be redirected to a blank page — copy the full URL from the address bar
   4. Hit GET /api/xbox-setup-complete?redirect_url=<paste URL here>
   5. Done — refresh token is saved automatically
-
-No Azure app registration needed.
 """
 
 import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse, urlencode
@@ -26,7 +31,7 @@ _REDIRECT_URI = "https://login.live.com/oauth20_desktop.srf"
 _XBL_URL = "https://user.auth.xboxlive.com/user/authenticate"
 _XSTS_URL = "https://xsts.auth.xboxlive.com/xsts/authorize"
 
-_CLIENT_ID = "000000004C12AE6F"
+_CLIENT_ID = os.getenv("XBOX_CLIENT_ID", "")
 _SCOPE = "XboxLive.signin offline_access"
 
 _TOKEN_FILE = Path("/data/xbox_refresh_token.txt")
@@ -45,6 +50,13 @@ class XboxTokens:
 
 def get_auth_url() -> str:
     """Return the URL the user must open in a browser to sign in."""
+    if not _CLIENT_ID:
+        raise RuntimeError(
+            "XBOX_CLIENT_ID is not set. Register a free Azure app at portal.azure.com "
+            "(App registrations → New registration, Personal Microsoft accounts only, "
+            "Mobile/desktop redirect URI: https://login.live.com/oauth20_desktop.srf) "
+            "then set XBOX_CLIENT_ID=<your app's client UUID>."
+        )
     params = urlencode({
         "client_id": _CLIENT_ID,
         "response_type": "code",
