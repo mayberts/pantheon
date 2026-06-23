@@ -25,8 +25,8 @@ import httpx
 
 log = logging.getLogger(__name__)
 
-_AUTH_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize"
-_MS_TOKEN_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
+_AUTH_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
+_MS_TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
 _XBL_URL = "https://user.auth.xboxlive.com/user/authenticate"
 _XSTS_URL = "https://xsts.auth.xboxlive.com/xsts/authorize"
 
