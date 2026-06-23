@@ -730,10 +730,10 @@ async def xbox_360_debug(game_id: int):
     # Look up the Xbox title_id from the DB
     pool = await db.get_pool()
     async with pool.connection() as conn:
-        row = await _fetchrow(conn, "SELECT external_id FROM platform_games WHERE id = %s", game_id)
+        row = await _fetchrow(conn, "SELECT platform_app_id FROM platform_games WHERE id = %s", game_id)
     if not row:
         raise HTTPException(status_code=404, detail=f"Game {game_id} not found")
-    title_id = row["external_id"]
+    title_id = row["platform_app_id"]
     refresh_token = config.XBOX_REFRESH_TOKEN or load_refresh_token()
     if not refresh_token:
         raise HTTPException(status_code=400, detail="Xbox not configured")
