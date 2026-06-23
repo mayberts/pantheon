@@ -10,7 +10,6 @@ RA_USERNAME = os.getenv("RA_USERNAME", "")
 RA_API_KEY = os.getenv("RA_API_KEY", "")
 RA_TARGET_USER = os.getenv("RA_TARGET_USER", "") or RA_USERNAME
 
-XBOX_CLIENT_ID = os.getenv("XBOX_CLIENT_ID", "")
 XBOX_REFRESH_TOKEN = os.getenv("XBOX_REFRESH_TOKEN", "")
 
 SYNC_INTERVAL_HOURS = int(os.getenv("SYNC_INTERVAL_HOURS", "12"))
@@ -32,6 +31,6 @@ def enabled_accounts() -> list[dict]:
         accounts.append({"platform": "steam", "external_id": STEAM_ID})
     if RA_USERNAME and RA_API_KEY:
         accounts.append({"platform": "retroachievements", "external_id": RA_TARGET_USER})
-    if XBOX_CLIENT_ID and (XBOX_REFRESH_TOKEN or load_refresh_token()):
+    if XBOX_REFRESH_TOKEN or load_refresh_token():
         accounts.append({"platform": "xbox", "external_id": "xbox"})
     return accounts

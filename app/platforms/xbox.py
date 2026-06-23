@@ -27,12 +27,11 @@ class XboxPlatform(Platform):
     async def sync(self, account: dict, conn) -> None:
         from app.xbox_auth import get_tokens, load_refresh_token
 
-        client_id = config.XBOX_CLIENT_ID
         refresh_token = config.XBOX_REFRESH_TOKEN or load_refresh_token()
-        if not client_id or not refresh_token:
+        if not refresh_token:
             raise RuntimeError("Xbox not configured — hit /api/xbox-setup to authenticate")
 
-        tokens = await get_tokens(client_id, refresh_token)
+        tokens = await get_tokens(refresh_token)
         xuid = tokens.xuid
         delay = config.REQUEST_DELAY_SECONDS
 
