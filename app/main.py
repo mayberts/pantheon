@@ -740,23 +740,30 @@ async def xbox_360_debug(game_id: int):
     tokens = await get_tokens(refresh_token)
     xuid = tokens.xuid
     async with httpx.AsyncClient(timeout=30) as client:
-        title_resp = await client.get(
+        title_v1_resp = await client.get(
             f"{_ACH}/titles/{title_id}/achievements",
             params={"maxItems": 5},
             headers=_xbl_headers(tokens, contract="1"),
         )
-        user_resp = await client.get(
+        user_v1_resp = await client.get(
             f"{_ACH}/users/xuid({xuid})/achievements",
             params={"titleId": title_id, "maxItems": 5},
             headers=_xbl_headers(tokens, contract="1"),
         )
+        user_v2_resp = await client.get(
+            f"{_ACH}/users/xuid({xuid})/achievements",
+            params={"titleId": title_id, "maxItems": 5},
+            headers=_xbl_headers(tokens, contract="2"),
+        )
     return {
         "game_id": game_id,
         "xbox_title_id": title_id,
-        "title_status": title_resp.status_code,
-        "title_sample": title_resp.json() if title_resp.status_code == 200 else title_resp.text,
-        "user_status": user_resp.status_code,
-        "user_sample": user_resp.json() if user_resp.status_code == 200 else user_resp.text,
+        "title_v1_status": title_v1_resp.status_code,
+        "title_v1_sample": title_v1_resp.json() if title_v1_resp.status_code == 200 else title_v1_resp.text,
+        "user_v1_status": user_v1_resp.status_code,
+        "user_v1_sample": user_v1_resp.json() if user_v1_resp.status_code == 200 else user_v1_resp.text,
+        "user_v2_status": user_v2_resp.status_code,
+        "user_v2_sample": user_v2_resp.json() if user_v2_resp.status_code == 200 else user_v2_resp.text,
     }
 
 
