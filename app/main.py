@@ -1,5 +1,7 @@
 import asyncio
 import logging
+
+import httpx
 from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -717,6 +719,35 @@ async def xbox_setup_poll(device_code: str):
         "xuid": xuid,
         "message": "Xbox authenticated successfully. The refresh token has been saved. Run a sync to import your games.",
         "env_hint": f"You can also set XBOX_REFRESH_TOKEN={refresh_token} in your .env for persistence across container recreations.",
+    }
+
+
+@app.get("/api/xbox-360-debug")
+async def xbox_360_debug(title_id: str):
+    """Return raw contract v1 title + user achievement API responses for a 360 game."""
+    from app.xbox_auth import get_tokens, load_refresh_token
+    from app.platforms.xbox import _xbl_headers, _ACH
+    refresh_token = config.XBOX_REFRESH_TOKEN or load_refresh_token()
+    if not refresh_token:
+        raise HTTPException(status_code=400, detail="Xbox not configured")
+    tokens = await get_tokens(refresh_token)
+    xuid = tokens.xuid
+    async with httpx.AsyncClient(timeout=30) as client:
+        title_resp = await client.get(
+            f"{_ACH}/titles/{title_id}/achievements",
+            params={"maxItems": 10},
+            headers=_xbl_headers(tokens, contract="1"),
+        )
+        user_resp = await client.get(
+            f"{_ACH}/users/xuid({xuid})/achievements",
+            params={"titleId": title_id, "maxItems": 10},
+            headers=_xbl_headers(tokens, contract="1"),
+        )
+    return {
+        "title_status": title_resp.status_code,
+        "title_sample": title_resp.json() if title_resp.status_code == 200 else title_resp.text,
+        "user_status": user_resp.status_code,
+        "user_sample": user_resp.json() if user_resp.status_code == 200 else user_resp.text,
     }
 
 
