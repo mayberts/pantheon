@@ -55,7 +55,8 @@ async def start_device_flow(client_id: str) -> dict:
             _MS_DEVICE_URL,
             data={"client_id": client_id, "scope": _SCOPE},
         )
-        resp.raise_for_status()
+        if not resp.is_success:
+            raise RuntimeError(f"HTTP {resp.status_code}: {resp.text}")
         return resp.json()
 
 
