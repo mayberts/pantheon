@@ -677,30 +677,35 @@ async def trigger_sync():
 
 @app.get("/api/xbox-setup")
 async def xbox_setup():
-    """Get the sign-in URL. Open it in a browser, sign in, copy the redirect URL."""
-    from app.xbox_auth import get_auth_url
+    """Start device code flow. Returns a user_code to enter at microsoft.com/devicelogin."""
+    from app.xbox_auth import start_device_flow
     try:
-        url = get_auth_url()
+        data = await start_device_flow()
     except RuntimeError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {
-        "sign_in_url": url,
+        "user_code": data.get("user_code"),
+        "verification_uri": data.get("verification_uri"),
+        "device_code": data.get("device_code"),
+        "expires_in_seconds": data.get("expires_in"),
+        "interval": data.get("interval", 5),
         "instructions": (
-            "Open sign_in_url in a browser and sign in. "
-            "After sign-in you will land on a blank page — copy the full URL from the address bar "
-            "and pass it to GET /api/xbox-setup-complete?redirect_url=<paste here>."
+            f"Go to {data.get('verification_uri')} and enter code {data.get('user_code')}. "
+            f"Then poll GET /api/xbox-setup-poll?device_code=<device_code> every {data.get('interval', 5)}s until status=done."
         ),
     }
 
 
-@app.get("/api/xbox-setup-complete")
-async def xbox_setup_complete(redirect_url: str):
-    """Exchange the auth code from the redirect URL for a refresh token."""
-    from app.xbox_auth import exchange_code, get_tokens
+@app.get("/api/xbox-setup-poll")
+async def xbox_setup_poll(device_code: str):
+    """Poll for device code flow completion. Call repeatedly until status=done."""
+    from app.xbox_auth import poll_device_flow, get_tokens
     try:
-        refresh_token = await exchange_code(redirect_url)
-    except Exception as e:
+        refresh_token = await poll_device_flow(device_code)
+    except RuntimeError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    if refresh_token is None:
+        return {"status": "pending"}
     try:
         tokens = await get_tokens(refresh_token)
         xuid = tokens.xuid
