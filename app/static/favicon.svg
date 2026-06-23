@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Dark background -->
+  <rect width="32" height="32" rx="6" fill="#0d1117"/>
+  <!-- Base bar -->
+  <rect x="5" y="26" width="22" height="2.5" rx="1" fill="#00e5ff"/>
+  <!-- Three columns -->
+  <rect x="7" y="12" width="4" height="14" rx="0.5" fill="#00e5ff"/>
+  <rect x="14" y="12" width="4" height="14" rx="0.5" fill="#00e5ff" opacity="0.7"/>
+  <rect x="21" y="12" width="4" height="14" rx="0.5" fill="#00e5ff" opacity="0.4"/>
+  <!-- Capital top bar -->
+  <rect x="5" y="9" width="22" height="2.5" rx="1" fill="#00e5ff"/>
+  <!-- Gold star above -->
+  <polygon points="16,1 17.5,5.8 22.5,5.8 18.5,8.7 20,13.5 16,10.6 12,13.5 13.5,8.7 9.5,5.8 14.5,5.8" fill="#ffd700"/>
+</svg>

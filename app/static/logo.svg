@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 48" fill="none">
+  <!-- Icon mark: stylized pillar/column with achievement star -->
+  <!-- Base -->
+  <rect x="8" y="40" width="28" height="3" rx="1" fill="#00e5ff"/>
+  <!-- Column shaft -->
+  <rect x="14" y="12" width="4" height="28" rx="1" fill="#00e5ff"/>
+  <rect x="20" y="12" width="4" height="28" rx="1" fill="#00e5ff" opacity="0.6"/>
+  <rect x="26" y="12" width="4" height="28" rx="1" fill="#00e5ff" opacity="0.35"/>
+  <!-- Capital top -->
+  <rect x="8" y="8" width="28" height="3" rx="1" fill="#00e5ff"/>
+  <!-- Star / achievement mark above -->
+  <polygon points="22,0 23.8,5.5 29.5,5.5 24.9,8.9 26.7,14.4 22,11 17.3,14.4 19.1,8.9 14.5,5.5 20.2,5.5" fill="#ffd700" opacity="0.95"/>
+
+  <!-- Wordmark -->
+  <text x="46" y="32" font-family="'Share Tech Mono', 'Courier New', monospace" font-size="22" font-weight="700" letter-spacing="4" fill="#e8eaf0">PANTHEON</text>
+  <!-- Sub-line -->
+  <text x="47" y="43" font-family="'Share Tech Mono', 'Courier New', monospace" font-size="7.5" font-weight="400" letter-spacing="3.5" fill="#00e5ff" opacity="0.8">HALL OF RECORDS</text>
+</svg>
