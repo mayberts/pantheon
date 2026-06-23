@@ -11,7 +11,6 @@ RA_API_KEY = os.getenv("RA_API_KEY", "")
 RA_TARGET_USER = os.getenv("RA_TARGET_USER", "") or RA_USERNAME
 
 XBOX_CLIENT_ID = os.getenv("XBOX_CLIENT_ID", "")
-XBOX_REDIRECT_URI = os.getenv("XBOX_REDIRECT_URI", "http://localhost:8744/api/xbox-callback")
 XBOX_REFRESH_TOKEN = os.getenv("XBOX_REFRESH_TOKEN", "")
 
 SYNC_INTERVAL_HOURS = int(os.getenv("SYNC_INTERVAL_HOURS", "12"))
