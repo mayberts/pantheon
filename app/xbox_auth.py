@@ -46,7 +46,7 @@ async def start_device_flow() -> dict:
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.post(
             _MS_DEVICE_URL,
-            data={"client_id": _CLIENT_ID, "scope": _SCOPE},
+            data={"client_id": _CLIENT_ID, "scope": _SCOPE, "response_type": "device_code"},
         )
         if not resp.is_success:
             raise RuntimeError(f"HTTP {resp.status_code}: {resp.text}")
