@@ -1,37 +1,37 @@
 """
-Xbox Live authentication via Microsoft identity platform OAuth2 auth code flow.
+Xbox Live authentication via Microsoft identity platform device code flow.
 
 Setup (one-time):
   0. Register a free Azure app:
        portal.azure.com → App registrations → New registration
        - Supported account types: Personal Microsoft accounts only
-       - Redirect URI platform: Mobile and desktop applications
-       - Redirect URI value: https://login.microsoftonline.com/common/oauth2/nativeclient
+         (or "Accounts in any org directory and personal accounts")
+       - No redirect URI needed
+       Then under Authentication → Advanced settings:
+         Enable "Allow public client flows" → Yes → Save
        Copy the Application (client) ID and set XBOX_CLIENT_ID=<UUID> in your .env
-  1. Hit GET /api/xbox-setup — get a sign-in URL
-  2. Open the URL in a browser and sign in
-  3. After sign-in you'll be redirected to a blank page — copy the full URL from the address bar
-  4. Hit GET /api/xbox-setup-complete?redirect_url=<paste URL here>
-  5. Done — refresh token is saved automatically
+  1. Hit GET /api/xbox-setup — get a user code and verification URL
+  2. Open the verification URL in a browser, enter the user code, sign in
+  3. Hit GET /api/xbox-setup-poll?device_code=<device_code> until status=done
+  4. Done — refresh token is saved automatically
 """
 
+import asyncio
 import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse, urlencode
 
 import httpx
 
 log = logging.getLogger(__name__)
 
-_AUTH_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
-_MS_TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+_DEVICE_CODE_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode"
+_MS_TOKEN_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
 _XBL_URL = "https://user.auth.xboxlive.com/user/authenticate"
 _XSTS_URL = "https://xsts.auth.xboxlive.com/xsts/authorize"
 
 _CLIENT_ID = os.getenv("XBOX_CLIENT_ID", "")
-_REDIRECT_URI = "https://login.microsoftonline.com/common/oauth2/nativeclient"
 _SCOPE = "XboxLive.signin offline_access"
 
 _TOKEN_FILE = Path("/data/xbox_refresh_token.txt")
@@ -48,48 +48,51 @@ class XboxTokens:
         return f"XBL3.0 x={self.user_hash};{self.xsts_token}"
 
 
-def get_auth_url() -> str:
-    """Return the URL the user must open in a browser to sign in."""
+async def start_device_flow() -> dict:
+    """Start device code flow. Returns dict with user_code, verification_uri, device_code, interval."""
     if not _CLIENT_ID:
         raise RuntimeError(
             "XBOX_CLIENT_ID is not set. Register a free Azure app at portal.azure.com "
             "(App registrations → New registration, Personal Microsoft accounts only, "
-            f"Web redirect URI: {_REDIRECT_URI}) "
+            "no redirect URI needed, then Authentication → Allow public client flows → Yes) "
             "then set XBOX_CLIENT_ID=<your app's client UUID>."
         )
-    params = urlencode({
-        "client_id": _CLIENT_ID,
-        "response_type": "code",
-        "prompt": "select_account",
-        "scope": _SCOPE,
-        "redirect_uri": _REDIRECT_URI,
-    })
-    return f"{_AUTH_URL}?{params}"
-
-
-async def exchange_code(redirect_url: str) -> str:
-    """Extract auth code from the redirect URL and exchange it for a refresh token."""
-    parsed = urlparse(redirect_url)
-    params = parse_qs(parsed.query)
-    code = (params.get("code") or [""])[0]
-    if not code:
-        raise RuntimeError(
-            f"No 'code' parameter found in the URL. Make sure you copied the full redirect URL. Got: {redirect_url[:200]}"
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.post(
+            _DEVICE_CODE_URL,
+            data={"client_id": _CLIENT_ID, "scope": _SCOPE},
         )
+        if not resp.is_success:
+            raise RuntimeError(f"Device code request failed: {resp.text}")
+    return resp.json()
+
+
+async def poll_device_flow(device_code: str) -> str | None:
+    """
+    Poll once for token. Returns refresh token if done, None if still pending.
+    Raises RuntimeError on terminal errors (expired, denied).
+    """
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.post(
             _MS_TOKEN_URL,
             data={
                 "client_id": _CLIENT_ID,
-                "code": code,
-                "grant_type": "authorization_code",
-                "redirect_uri": _REDIRECT_URI,
-                "scope": _SCOPE,
+                "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+                "device_code": device_code,
             },
         )
-        if not resp.is_success:
-            raise RuntimeError(f"Token exchange failed: {resp.text}")
         data = resp.json()
+    error = data.get("error")
+    if error == "authorization_pending":
+        return None
+    if error == "slow_down":
+        return None
+    if error == "authorization_declined":
+        raise RuntimeError("Sign-in was declined by the user.")
+    if error == "expired_token":
+        raise RuntimeError("Device code expired. Start the flow again.")
+    if error:
+        raise RuntimeError(f"Token error: {error} — {data.get('error_description', '')}")
     refresh_token = data.get("refresh_token")
     if not refresh_token:
         raise RuntimeError(f"No refresh_token in response: {data}")
