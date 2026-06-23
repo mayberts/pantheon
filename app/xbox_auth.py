@@ -1,18 +1,18 @@
 """
-Xbox Live authentication via Microsoft Live OAuth2 auth code flow.
+Xbox Live authentication via Microsoft identity platform OAuth2 auth code flow.
 
 Setup (one-time):
   0. Register a free Azure app:
        portal.azure.com → App registrations → New registration
        - Supported account types: Personal Microsoft accounts only
-       - Redirect URI platform: Mobile and desktop applications
-       - Redirect URI value: https://login.live.com/oauth20_desktop.srf
-       Copy the Application (client) ID and set XBOX_CLIENT_ID=<that UUID> in your .env
+       - Redirect URI platform: Web
+       - Redirect URI value: http://<your-pantheon-host>/api/xbox-callback
+         (default: http://localhost:8744/api/xbox-callback)
+         Set XBOX_REDIRECT_URI in your .env if your host differs.
+       Copy the Application (client) ID and set XBOX_CLIENT_ID=<UUID> in your .env
   1. Hit GET /api/xbox-setup — get a sign-in URL
-  2. Open the URL in a browser, sign in with your Microsoft account
-  3. After sign-in you'll be redirected to a blank page — copy the full URL from the address bar
-  4. Hit GET /api/xbox-setup-complete?redirect_url=<paste URL here>
-  5. Done — refresh token is saved automatically
+  2. Open the URL in a browser and sign in — the callback is handled automatically
+  3. Done — refresh token is saved automatically
 """
 
 import logging
@@ -25,13 +25,13 @@ import httpx
 
 log = logging.getLogger(__name__)
 
-_AUTH_URL = "https://login.live.com/oauth20_authorize.srf"
-_MS_TOKEN_URL = "https://login.live.com/oauth20_token.srf"
-_REDIRECT_URI = "https://login.live.com/oauth20_desktop.srf"
+_AUTH_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize"
+_MS_TOKEN_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
 _XBL_URL = "https://user.auth.xboxlive.com/user/authenticate"
 _XSTS_URL = "https://xsts.auth.xboxlive.com/xsts/authorize"
 
 _CLIENT_ID = os.getenv("XBOX_CLIENT_ID", "")
+_REDIRECT_URI = os.getenv("XBOX_REDIRECT_URI", "http://localhost:8744/api/xbox-callback")
 _SCOPE = "XboxLive.signin offline_access"
 
 _TOKEN_FILE = Path("/data/xbox_refresh_token.txt")
@@ -54,7 +54,7 @@ def get_auth_url() -> str:
         raise RuntimeError(
             "XBOX_CLIENT_ID is not set. Register a free Azure app at portal.azure.com "
             "(App registrations → New registration, Personal Microsoft accounts only, "
-            "Mobile/desktop redirect URI: https://login.live.com/oauth20_desktop.srf) "
+            f"Web redirect URI: {_REDIRECT_URI}) "
             "then set XBOX_CLIENT_ID=<your app's client UUID>."
         )
     params = urlencode({
@@ -67,15 +67,8 @@ def get_auth_url() -> str:
     return f"{_AUTH_URL}?{params}"
 
 
-async def exchange_code(redirect_url: str) -> str:
-    """Extract auth code from the redirect URL and exchange it for a refresh token."""
-    parsed = urlparse(redirect_url)
-    params = parse_qs(parsed.query)
-    code = (params.get("code") or [""])[0]
-    if not code:
-        raise RuntimeError(
-            f"No 'code' parameter found in the URL. Make sure you copied the full redirect URL. Got: {redirect_url[:200]}"
-        )
+async def exchange_code(code: str) -> str:
+    """Exchange an auth code for a refresh token."""
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.post(
             _MS_TOKEN_URL,

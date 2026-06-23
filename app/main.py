@@ -677,36 +677,49 @@ async def trigger_sync():
 
 @app.get("/api/xbox-setup")
 async def xbox_setup():
-    """Step 1: Get the sign-in URL. Open it in a browser, sign in, then copy the redirect URL."""
-    from app.xbox_auth import get_auth_url
-    url = get_auth_url()
+    """Get the sign-in URL. Open it in a browser — the callback is handled automatically."""
+    from app.xbox_auth import get_auth_url, _REDIRECT_URI
+    try:
+        url = get_auth_url()
+    except RuntimeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     return {
         "sign_in_url": url,
-        "instructions": "Open sign_in_url in a browser and sign in with your Microsoft account. After sign-in you will be redirected to a blank page — copy the full URL from the address bar.",
-        "next_step": "Hit GET /api/xbox-setup-complete?redirect_url=<paste URL here>",
+        "redirect_uri": _REDIRECT_URI,
+        "instructions": (
+            "1. Make sure your Azure app has the redirect_uri above registered as a Web redirect URI. "
+            "2. Open sign_in_url in a browser and sign in. "
+            "3. The callback will be handled automatically."
+        ),
     }
 
 
-@app.get("/api/xbox-setup-complete")
-async def xbox_setup_complete(redirect_url: str):
-    """Step 2: Exchange the auth code from the redirect URL for a refresh token."""
+@app.get("/api/xbox-callback")
+async def xbox_callback(code: str = "", error: str = "", error_description: str = ""):
+    """OAuth2 callback — Microsoft redirects here after sign-in."""
     from app.xbox_auth import exchange_code, get_tokens
+    from fastapi.responses import HTMLResponse
+    if error:
+        return HTMLResponse(
+            f"<h2>Xbox auth failed</h2><p>{error}: {error_description}</p>",
+            status_code=400,
+        )
+    if not code:
+        return HTMLResponse("<h2>Xbox auth failed</h2><p>No code received.</p>", status_code=400)
     try:
-        refresh_token = await exchange_code(redirect_url)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    try:
+        refresh_token = await exchange_code(code)
         tokens = await get_tokens(refresh_token)
         xuid = tokens.xuid
     except Exception as e:
-        xuid = "unknown"
-        log.warning("Could not fetch XUID after auth: %s", e)
-    return {
-        "status": "done",
-        "xuid": xuid,
-        "message": "Xbox authenticated successfully. The refresh token has been saved. Run a sync to import your games.",
-        "env_hint": f"You can also set XBOX_REFRESH_TOKEN={refresh_token} in your .env for persistence across container recreations.",
-    }
+        log.error("Xbox callback error: %s", e)
+        return HTMLResponse(f"<h2>Xbox auth failed</h2><p>{e}</p>", status_code=500)
+    return HTMLResponse(
+        f"<h2>Xbox authenticated!</h2>"
+        f"<p>Signed in as XUID <code>{xuid}</code>. Refresh token saved.</p>"
+        f"<p>You can close this tab. Run a sync to import your games.</p>"
+        f"<p><small>To persist across container recreations, set "
+        f"<code>XBOX_REFRESH_TOKEN={refresh_token}</code> in your .env</small></p>"
+    )
 
 
 async def status():
