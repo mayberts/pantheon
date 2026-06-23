@@ -32,7 +32,7 @@ _XBL_URL = "https://user.auth.xboxlive.com/user/authenticate"
 _XSTS_URL = "https://xsts.auth.xboxlive.com/xsts/authorize"
 
 _CLIENT_ID = os.getenv("XBOX_CLIENT_ID", "")
-_SCOPE = "XboxLive.signin XboxLive.offline_access"
+_SCOPE = "XboxLive.signin offline_access"
 
 _TOKEN_FILE = Path("/data/xbox_refresh_token.txt")
 
