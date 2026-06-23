@@ -31,7 +31,7 @@ _MS_TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
 _MS_DEVICE_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/devicecode"
 _XBL_URL = "https://user.auth.xboxlive.com/user/authenticate"
 _XSTS_URL = "https://xsts.auth.xboxlive.com/xsts/authorize"
-_SCOPE = "Xboxlive.signin Xboxlive.offline_access offline_access"
+_SCOPE = "XboxLive.signin offline_access"
 
 # Path where refresh token is persisted between container restarts
 _TOKEN_FILE = Path("/data/xbox_refresh_token.txt")
