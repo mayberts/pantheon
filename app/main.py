@@ -681,7 +681,10 @@ async def xbox_setup():
     if not config.XBOX_CLIENT_ID:
         raise HTTPException(status_code=400, detail="XBOX_CLIENT_ID not set in .env")
     from app.xbox_auth import start_device_flow
-    data = await start_device_flow(config.XBOX_CLIENT_ID)
+    try:
+        data = await start_device_flow(config.XBOX_CLIENT_ID)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Microsoft auth failed: {e}")
     return {
         "instructions": "Go to the URL below and enter the code to sign in with your Microsoft account.",
         "verification_uri": data.get("verification_uri"),
