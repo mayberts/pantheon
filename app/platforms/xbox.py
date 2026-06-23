@@ -100,23 +100,47 @@ class XboxPlatform(Platform):
                 if earned_cache.get(title_id) == earned and total > 0:
                     continue
 
-                # Fetch per-achievement detail (contract v1 for 360, v2 for modern)
                 await asyncio.sleep(delay)
-                contract = "1" if is_360 else "2"
-                ach_resp = await client.get(
-                    f"{_ACH}/users/xuid({xuid})/achievements",
-                    params={"titleId": title_id, "maxItems": 1000},
-                    headers=_xbl_headers(tokens, contract=contract),
-                )
-                if ach_resp.status_code == 429:
-                    log.warning("Xbox Live rate limit hit")
-                    raise RuntimeError("Xbox Live rate limit — try again later")
-                if ach_resp.status_code != 200:
-                    log.warning("Achievements fetch failed for %s: HTTP %d", name, ach_resp.status_code)
-                    continue
 
-                ach_data = ach_resp.json()
-                achievements = ach_data.get("achievements") or []
+                if is_360:
+                    # For 360 titles the user endpoint only returns earned achievements.
+                    # Fetch the full title achievement list first, then overlay earned status.
+                    title_resp = await client.get(
+                        f"{_ACH}/titles/{title_id}/achievements",
+                        params={"maxItems": 1000},
+                        headers=_xbl_headers(tokens, contract="1"),
+                    )
+                    user_resp = await client.get(
+                        f"{_ACH}/users/xuid({xuid})/achievements",
+                        params={"titleId": title_id, "maxItems": 1000},
+                        headers=_xbl_headers(tokens, contract="1"),
+                    )
+                    if title_resp.status_code == 429 or user_resp.status_code == 429:
+                        log.warning("Xbox Live rate limit hit")
+                        raise RuntimeError("Xbox Live rate limit — try again later")
+                    if title_resp.status_code != 200:
+                        log.warning("360 title achievements fetch failed for %s: HTTP %d", name, title_resp.status_code)
+                        continue
+                    achievements = title_resp.json().get("achievements") or []
+                    # Build earned lookup by id
+                    earned_map = {}
+                    if user_resp.status_code == 200:
+                        for ua in (user_resp.json().get("achievements") or []):
+                            earned_map[str(ua.get("id", ""))] = ua
+                else:
+                    ach_resp = await client.get(
+                        f"{_ACH}/users/xuid({xuid})/achievements",
+                        params={"titleId": title_id, "maxItems": 1000},
+                        headers=_xbl_headers(tokens, contract="2"),
+                    )
+                    if ach_resp.status_code == 429:
+                        log.warning("Xbox Live rate limit hit")
+                        raise RuntimeError("Xbox Live rate limit — try again later")
+                    if ach_resp.status_code != 200:
+                        log.warning("Achievements fetch failed for %s: HTTP %d", name, ach_resp.status_code)
+                        continue
+                    achievements = ach_resp.json().get("achievements") or []
+                    earned_map = {}
 
                 if total == 0 and achievements:
                     total = len(achievements)
@@ -133,10 +157,13 @@ class XboxPlatform(Platform):
                     description = ach.get("description") or ach.get("lockedDescription")
 
                     icon = None
+                    # v2: mediaAssets list; v1: imageUrl top-level field
                     for media in ach.get("mediaAssets") or []:
                         if media.get("type") == "Icon":
                             icon = media.get("url")
                             break
+                    if not icon:
+                        icon = ach.get("imageUrl") or ach.get("image", {}).get("url")
 
                     points = None
                     for reward in ach.get("rewards") or []:
@@ -161,26 +188,32 @@ class XboxPlatform(Platform):
                         except (TypeError, ValueError):
                             pass
 
-                    # v2 (modern): progressState == "Achieved"
-                    # v1 (360):    isEarned == true
-                    unlocked = (
-                        ach.get("progressState") == "Achieved"
-                        or ach.get("isEarned") is True
-                    )
-                    unlocked_at = None
-                    if unlocked:
-                        # v2: progression.timeUnlocked
-                        time_str = (ach.get("progression") or {}).get("timeUnlocked")
-                        # v1: earnedDateTime at top level
-                        if not time_str:
-                            time_str = ach.get("earnedDateTime")
-                        if time_str and time_str not in ("", "0001-01-01T00:00:00.0000000Z", "0001-01-01T00:00:00Z"):
-                            try:
-                                unlocked_at = datetime.fromisoformat(
-                                    time_str.replace("Z", "+00:00")
-                                )
-                            except ValueError:
-                                pass
+                    if is_360:
+                        # earned_map has the user's earned achievements by id
+                        earned_ach = earned_map.get(ach_id)
+                        unlocked = earned_ach is not None
+                        unlocked_at = None
+                        if unlocked:
+                            time_str = (earned_ach or {}).get("earnedDateTime")
+                            if time_str and time_str not in ("", "0001-01-01T00:00:00.0000000Z", "0001-01-01T00:00:00Z"):
+                                try:
+                                    unlocked_at = datetime.fromisoformat(
+                                        time_str.replace("Z", "+00:00")
+                                    )
+                                except ValueError:
+                                    pass
+                    else:
+                        unlocked = ach.get("progressState") == "Achieved"
+                        unlocked_at = None
+                        if unlocked:
+                            time_str = (ach.get("progression") or {}).get("timeUnlocked")
+                            if time_str and time_str not in ("", "0001-01-01T00:00:00.0000000Z", "0001-01-01T00:00:00Z"):
+                                try:
+                                    unlocked_at = datetime.fromisoformat(
+                                        time_str.replace("Z", "+00:00")
+                                    )
+                                except ValueError:
+                                    pass
 
                     db_ach_id = await db.upsert_achievement(
                         conn, pg_id, ach_id, ach_name, description, icon, points, rarity_pct
