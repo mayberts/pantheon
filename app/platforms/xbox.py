@@ -146,6 +146,12 @@ class XboxPlatform(Platform):
                             except (TypeError, ValueError):
                                 pass
                             break
+                    # v1 (360): gamerscore is a top-level field
+                    if points is None and ach.get("gamerscore") is not None:
+                        try:
+                            points = int(ach["gamerscore"])
+                        except (TypeError, ValueError):
+                            pass
 
                     rarity_pct = None
                     rarity = ach.get("rarity") or {}
@@ -155,11 +161,20 @@ class XboxPlatform(Platform):
                         except (TypeError, ValueError):
                             pass
 
-                    unlocked = ach.get("progressState") == "Achieved"
+                    # v2 (modern): progressState == "Achieved"
+                    # v1 (360):    isEarned == true
+                    unlocked = (
+                        ach.get("progressState") == "Achieved"
+                        or ach.get("isEarned") is True
+                    )
                     unlocked_at = None
                     if unlocked:
+                        # v2: progression.timeUnlocked
                         time_str = (ach.get("progression") or {}).get("timeUnlocked")
-                        if time_str and time_str != "0001-01-01T00:00:00.0000000Z":
+                        # v1: earnedDateTime at top level
+                        if not time_str:
+                            time_str = ach.get("earnedDateTime")
+                        if time_str and time_str not in ("", "0001-01-01T00:00:00.0000000Z", "0001-01-01T00:00:00Z"):
                             try:
                                 unlocked_at = datetime.fromisoformat(
                                     time_str.replace("Z", "+00:00")
