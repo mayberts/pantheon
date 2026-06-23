@@ -723,10 +723,17 @@ async def xbox_setup_poll(device_code: str):
 
 
 @app.get("/api/xbox-360-debug")
-async def xbox_360_debug(title_id: str):
-    """Return raw contract v1 title + user achievement API responses for a 360 game."""
+async def xbox_360_debug(game_id: int):
+    """Return raw contract v1 achievement API responses for a 360 game (use Pantheon game_id from /game/<id> URL)."""
     from app.xbox_auth import get_tokens, load_refresh_token
     from app.platforms.xbox import _xbl_headers, _ACH
+    # Look up the Xbox title_id from the DB
+    pool = await db.get_pool()
+    async with pool.connection() as conn:
+        row = await _fetchrow(conn, "SELECT external_id FROM platform_games WHERE id = %s", [game_id])
+    if not row:
+        raise HTTPException(status_code=404, detail=f"Game {game_id} not found")
+    title_id = row["external_id"]
     refresh_token = config.XBOX_REFRESH_TOKEN or load_refresh_token()
     if not refresh_token:
         raise HTTPException(status_code=400, detail="Xbox not configured")
@@ -735,15 +742,17 @@ async def xbox_360_debug(title_id: str):
     async with httpx.AsyncClient(timeout=30) as client:
         title_resp = await client.get(
             f"{_ACH}/titles/{title_id}/achievements",
-            params={"maxItems": 10},
+            params={"maxItems": 5},
             headers=_xbl_headers(tokens, contract="1"),
         )
         user_resp = await client.get(
             f"{_ACH}/users/xuid({xuid})/achievements",
-            params={"titleId": title_id, "maxItems": 10},
+            params={"titleId": title_id, "maxItems": 5},
             headers=_xbl_headers(tokens, contract="1"),
         )
     return {
+        "game_id": game_id,
+        "xbox_title_id": title_id,
         "title_status": title_resp.status_code,
         "title_sample": title_resp.json() if title_resp.status_code == 200 else title_resp.text,
         "user_status": user_resp.status_code,
