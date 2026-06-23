@@ -127,20 +127,6 @@ class XboxPlatform(Platform):
                         continuation = (data.get("pagingInfo") or {}).get("continuationToken")
                         if not continuation:
                             break
-
-                    # Try to fetch icons from title endpoint
-                    icon_map = {}
-                    title_ach_resp = await client.get(
-                        f"{_ACH}/titles/{title_id}/achievements",
-                        params={"maxItems": 1000},
-                        headers=_xbl_headers(tokens, contract="1"),
-                    )
-                    if title_ach_resp.status_code == 200:
-                        for title_ach in (title_ach_resp.json().get("achievements") or []):
-                            ach_id = str(title_ach.get("id", ""))
-                            image_id = title_ach.get("imageId")
-                            if ach_id and image_id is not None:
-                                icon_map[ach_id] = f"https://image-ssl.xboxlive.com/global/t.{int(title_id):X}/ach/0/{image_id}.png"
                     earned_map = {}  # not used for 360 — each ach IS earned
                 else:
                     ach_resp = await client.get(
@@ -172,9 +158,7 @@ class XboxPlatform(Platform):
                     description = ach.get("description") or ach.get("lockedDescription")
 
                     icon = None
-                    if is_360:
-                        icon = icon_map.get(ach_id)
-                    else:
+                    if not is_360:
                         for media in ach.get("mediaAssets") or []:
                             if media.get("type") == "Icon":
                                 icon = media.get("url")
