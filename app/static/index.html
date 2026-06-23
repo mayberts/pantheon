@@ -290,6 +290,12 @@
   .ach-item-date { font-size: 0.72rem; color: var(--green); letter-spacing: 0.05em; font-weight: 600; }
   .ach-item-rarity { font-size: 0.68rem; color: var(--muted2); margin-top: 3px; }
   .ach-item-points { font-size: 0.7rem; color: var(--amber); font-weight: 600; margin-top: 3px; }
+  .ach-item-tier { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 3px; }
+  .ach-item-tier.Legendary { color: #ffd700; }
+  .ach-item-tier.Epic      { color: #c060ff; }
+  .ach-item-tier.Rare      { color: #4db8ff; }
+  .ach-item-tier.Uncommon  { color: #50e890; }
+  .ach-item-tier.Common    { color: var(--muted2); }
 
   .ach-loading-row { padding: 32px; text-align: center; color: var(--muted2); font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; }
 
@@ -1032,11 +1038,21 @@ async function loadGameDetail(id) {
   renderAchs();
 }
 
+function rarityTier(pct) {
+  if (pct <= 1)  return 'Legendary';
+  if (pct <= 5)  return 'Epic';
+  if (pct <= 20) return 'Rare';
+  if (pct <= 50) return 'Uncommon';
+  return 'Common';
+}
+
 function achItemHTML(a) {
   const icon = a.icon_url
     ? `<img class="ach-item-icon" src="${a.icon_url}" alt="" onerror="this.outerHTML='<div class=ach-item-icon-ph>◈</div>'">`
     : `<div class="ach-item-icon-ph">◈</div>`;
   const date = a.unlocked_at ? `<div class="ach-item-date">Unlocked ${fmt(a.unlocked_at)}</div>` : '';
+  const tierName = a.rarity_pct != null ? rarityTier(parseFloat(a.rarity_pct)) : null;
+  const tier = tierName ? `<div class="ach-item-tier ${tierName}">${tierName}</div>` : '';
   const rarity = a.rarity_pct != null ? `<div class="ach-item-rarity">${parseFloat(a.rarity_pct).toFixed(1)}% of players</div>` : '';
   const pts = a.points ? `<div class="ach-item-points">${a.points} pts</div>` : '';
   return `
@@ -1046,7 +1062,7 @@ function achItemHTML(a) {
     <div class="ach-item-name">${esc(a.name || a.platform_ach_id)}</div>
     <div class="ach-item-desc">${esc(a.description || '')}</div>
   </div>
-  <div class="ach-item-meta">${date}${rarity}${pts}</div>
+  <div class="ach-item-meta">${date}${tier}${rarity}${pts}</div>
 </div>`;
 }
 
