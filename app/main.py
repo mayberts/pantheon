@@ -104,87 +104,6 @@ async def _enrich_hltb() -> None:
     await asyncio.gather(*[_lookup(row) for row in rows])
 
 
-async def _enrich_xbox_store_ids() -> None:
-    """Look up Microsoft Store product IDs for Xbox games that have a pfn but no store_id."""
-    import httpx
-    pool = await db.get_pool()
-    async with pool.connection() as conn:
-        rows = await _fetch(
-            conn,
-            "SELECT id, name, xbox_pfn FROM platform_games WHERE platform = 'xbox' AND store_id IS NULL",
-        )
-    if not rows:
-        return
-    log.info("Xbox store enrichment: %d games to look up", len(rows))
-    sem = asyncio.Semaphore(5)
-
-    async def _lookup(row):
-        async with sem:
-            try:
-                import re
-                from urllib.parse import quote
-                clean = re.sub(r'[®™]', '', row["name"])
-                clean = re.sub(r'\s*-\s*(digital|standard|deluxe|gold|ultimate|premium|launch|legacy|hardened|vault|bundle|edition|pass).*$', '', clean, flags=re.IGNORECASE)
-                clean = re.sub(r'\s*\((windows|pc|xbox one|xbox series[^)]*)\)', '', clean, flags=re.IGNORECASE).strip()
-                clean_q = clean.replace(":", "")
-                url = f"https://storeedgefd.dsx.mp.microsoft.com/v9.0/search?market=US&locale=en-US&deviceFamily=Windows.Desktop&query={quote(clean_q)}"
-                async with httpx.AsyncClient(timeout=10) as client:
-                    resp = await client.get(url)
-                if resp.status_code != 200:
-                    log.warning("Xbox store search %s: HTTP %d — %s", row["name"], resp.status_code, resp.text[:200])
-                    return
-                data = resp.json()
-                pfn = row["xbox_pfn"]
-                payload = data.get("Payload") or {}
-                products = (payload.get("SearchResults") if isinstance(payload, dict) else None) or \
-                           data.get("SearchResults") or data.get("Products") or data.get("products") or []
-                if not isinstance(products, list):
-                    log.warning("Xbox store search: unexpected response for '%s': %s", row["name"], str(data)[:300])
-                    return
-                def title_overlap(product_title: str) -> float:
-                    t = re.sub(r'[®™:\'\"!.,\-]', '', product_title).lower()
-                    t_words = set(t.split())
-                    return len(game_words & t_words) / len(game_words) if game_words else 0
-
-                game_words = set(w for w in re.sub(r'[®™:\'\"!.,\-]', '', clean_q).lower().split() if len(w) > 2)
-
-                # Also check HighlightedResults which are the most relevant hits
-                highlighted = (payload.get("HighlightedResults") if isinstance(payload, dict) else None) or []
-                all_candidates = list(highlighted) + list(products)
-
-                big_id = None
-                # Pass 1: exact pfn match with title check
-                for p in all_candidates:
-                    pfns = p.get("PackageFamilyNames") or []
-                    if pfn in pfns:
-                        if title_overlap(p.get("Title") or "") >= 0.4:
-                            big_id = p.get("ProductId") or p.get("productId")
-                        else:
-                            log.warning("Xbox store: pfn matched '%s' (product: '%s') — title mismatch, trying name match", row["name"], p.get("Title"))
-                        break
-
-                # Pass 2: title-only match (≥60% word overlap) — handles games whose pfn isn't in results
-                if not big_id:
-                    best_score, best_pid = 0.0, None
-                    for p in all_candidates:
-                        score = title_overlap(p.get("Title") or "")
-                        pid = p.get("ProductId") or p.get("productId")
-                        if score > best_score and pid:
-                            best_score, best_pid = score, pid
-                    if best_score >= 0.6:
-                        big_id = best_pid
-                        log.info("Xbox store: title match (%.0f%%) for '%s'", best_score * 100, row["name"])
-                    else:
-                        log.warning("Xbox store: no confident match for '%s' (best score %.0f%%)", row["name"], best_score * 100)
-                if big_id:
-                    async with pool.connection() as conn:
-                        await db.set_store_id(conn, row["id"], big_id)
-                    log.info("Xbox store ID found for '%s': %s", row["name"], big_id)
-                await asyncio.sleep(config.REQUEST_DELAY_SECONDS)
-            except Exception:
-                log.exception("Xbox store lookup failed for %s", row["name"])
-
-    await asyncio.gather(*[_lookup(row) for row in rows])
 
 
 async def run_sync() -> None:
@@ -241,7 +160,6 @@ async def run_sync() -> None:
         _sync_progress["running"] = False
         asyncio.create_task(_enrich_hltb())
         asyncio.create_task(_enrich_igdb())
-        asyncio.create_task(_enrich_xbox_store_ids())
 
 
 @asynccontextmanager
@@ -757,155 +675,46 @@ async def trigger_sync():
     return {"status": "started"}
 
 
-@app.get("/api/xbox-xuid")
-async def xbox_xuid():
-    """Look up the XUID for the configured XBOX_OPENXBL_KEY."""
-    if not config.XBOX_OPENXBL_KEY:
-        raise HTTPException(status_code=400, detail="XBOX_OPENXBL_KEY not set")
-    async with __import__("httpx").AsyncClient(timeout=15) as client:
-        resp = await client.get(
-            "https://xbl.io/api/v2/account",
-            headers={"X-Authorization": config.XBOX_OPENXBL_KEY, "Accept": "application/json"},
-        )
-    if resp.status_code != 200:
-        raise HTTPException(status_code=502, detail=f"OpenXBL returned {resp.status_code}: {resp.text}")
-    data = resp.json()
-    users = data.get("profileUsers", [])
-    if not users:
-        raise HTTPException(status_code=502, detail=f"No profileUsers in response: {data}")
-    xuid = users[0].get("id")
-    gamertag = next((s["value"] for s in users[0].get("settings", []) if s["id"] == "Gamertag"), None)
-    return {"xuid": xuid, "gamertag": gamertag, "hint": "Add XBOX_XUID to your .env and restart"}
-
-
-@app.get("/api/xbox-debug")
-async def xbox_debug():
-    """Return raw OpenXBL titles response for debugging."""
-    if not config.XBOX_OPENXBL_KEY or not config.XBOX_XUID:
-        raise HTTPException(status_code=400, detail="XBOX_OPENXBL_KEY or XBOX_XUID not set")
-    import httpx
-    async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.get(
-            f"https://xbl.io/api/v2/achievements/player/{config.XBOX_XUID}",
-            headers={"X-Authorization": config.XBOX_OPENXBL_KEY, "Accept": "application/json"},
-        )
-    body = resp.json() if resp.status_code == 200 else {}
-    titles = body.get("titles") or (body.get("content", {}).get("titles", []) if isinstance(body.get("content"), dict) else body.get("content") if isinstance(body.get("content"), list) else [])
-    titles_360 = [
-        {"name": t.get("name"), "titleId": t.get("titleId"), "devices": t.get("devices"), "sourceVersion": t.get("achievement", {}).get("sourceVersion"), "pfn": t.get("pfn")}
-        for t in titles
-        if t.get("devices") == ["Xbox360"] or t.get("achievement", {}).get("sourceVersion") == 1
-    ]
+@app.get("/api/xbox-setup")
+async def xbox_setup():
+    """Start the Xbox device-code auth flow. Returns a URL and code for the user to sign in."""
+    if not config.XBOX_CLIENT_ID:
+        raise HTTPException(status_code=400, detail="XBOX_CLIENT_ID not set in .env")
+    from app.xbox_auth import start_device_flow
+    data = await start_device_flow(config.XBOX_CLIENT_ID)
     return {
-        "status_code": resp.status_code,
-        "xuid": config.XBOX_XUID,
-        "top_level_keys": list(body.keys()) if body else None,
-        "content_type": type(body.get("content")).__name__ if "content" in body else None,
-        "title_count": len(titles),
-        "titles_360_count": len(titles_360),
-        "titles_360_sample": titles_360[:5],
-        "first_title": titles[0] if titles else None,
-        "raw_truncated": resp.text[:500] if resp.status_code != 200 else None,
+        "instructions": "Go to the URL below and enter the code to sign in with your Microsoft account.",
+        "verification_uri": data.get("verification_uri"),
+        "user_code": data.get("user_code"),
+        "expires_in_seconds": data.get("expires_in"),
+        "next_step": f"Then hit GET /api/xbox-setup-poll?device_code={data.get('device_code')}&interval={data.get('interval', 5)}",
     }
 
 
-@app.get("/api/xbox-360-debug")
-async def xbox_360_debug(title_id: str | None = Query(default=None)):
-    """Fetch achievement detail for a 360 game via both endpoints. Pass ?title_id= to test a specific game."""
-    if not config.XBOX_OPENXBL_KEY or not config.XBOX_XUID:
-        raise HTTPException(status_code=400, detail="XBOX_OPENXBL_KEY or XBOX_XUID not set")
-    import httpx
-    pool = await db.get_pool()
-    if title_id:
-        async with pool.connection() as conn:
-            row = await _fetchrow(conn, "SELECT platform_app_id, name FROM platform_games WHERE platform = 'xbox' AND platform_app_id = %s", title_id)
-        if not row:
-            row = {"platform_app_id": title_id, "name": f"(title {title_id})"}
-    else:
-        async with pool.connection() as conn:
-            row = await _fetchrow(
-                conn,
-                """SELECT pg.platform_app_id, pg.name FROM platform_games pg
-                   JOIN user_games ug ON ug.platform_game_id = pg.id
-                   JOIN linked_accounts la ON la.id = ug.linked_account_id
-                   WHERE pg.platform = 'xbox' AND la.external_id = %s
-                     AND ug.total_achievements > 0
-                     AND ug.earned_achievements > 0
-                     AND pg.xbox_pfn IS NULL
-                   LIMIT 1""",
-                config.XBOX_XUID,
-            )
-    if not row:
-        return {"error": "No Xbox 360 games found (games with earned achievements and no pfn)"}
-    title_id = row["platform_app_id"]
-    xuid = config.XBOX_XUID
-    headers = {"X-Authorization": config.XBOX_OPENXBL_KEY, "Accept": "application/json"}
-    results = {}
-    async with httpx.AsyncClient(timeout=30, headers=headers) as client:
-        for label, url in [
-            ("x360", f"https://xbl.io/api/v2/achievements/x360/{xuid}/{title_id}"),
-            ("player", f"https://xbl.io/api/v2/achievements/player/{xuid}/{title_id}"),
-        ]:
-            resp = await client.get(url)
-            body = resp.json() if resp.status_code == 200 else {}
-            content = body.get("content")
-            achievements = (
-                body.get("achievements")
-                or (content if isinstance(content, list) else None)
-                or (content.get("achievements") if isinstance(content, dict) else None)
-                or []
-            )
-            results[label] = {
-                "status_code": resp.status_code,
-                "top_level_keys": list(body.keys()) if body else None,
-                "achievement_count": len(achievements),
-                "first_achievement": achievements[0] if achievements else None,
-                "raw_truncated": resp.text[:300] if resp.status_code != 200 else None,
-            }
-            await asyncio.sleep(1)
-    return {"game": row["name"], "title_id": title_id, "results": results}
-
-
-@app.get("/api/xbox-store-debug")
-async def xbox_store_debug():
-    """Test the Microsoft Store catalog API with a known pfn from the DB."""
-    import httpx
-    pool = await db.get_pool()
-    async with pool.connection() as conn:
-        row = await _fetchrow(
-            conn,
-            "SELECT id, name, xbox_pfn FROM platform_games WHERE platform = 'xbox' AND xbox_pfn IS NOT NULL LIMIT 1",
-        )
-    if not row:
-        return {"error": "No Xbox games with pfn in DB — run a sync first"}
-    pfn = row["xbox_pfn"]
-    import re
-    from urllib.parse import quote
-    clean = re.sub(r'[®™]', '', row["name"])
-    clean = re.sub(r'\s*-\s*(digital|standard|deluxe|gold|ultimate|premium|launch|legacy|hardened|vault|bundle|edition|pass).*$', '', clean, flags=re.IGNORECASE)
-    clean = re.sub(r'\s*\((windows|pc|xbox one|xbox series[^)]*)\)', '', clean, flags=re.IGNORECASE).strip()
-    clean_q = clean.replace(":", "")
-    url = f"https://storeedgefd.dsx.mp.microsoft.com/v9.0/search?market=US&locale=en-US&deviceFamily=Windows.Desktop&query={quote(clean_q)}"
-    async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.get(url)
-    if resp.status_code != 200:
-        return {"game": row["name"], "status_code": resp.status_code, "raw": resp.text[:1000]}
-    data = resp.json()
-    payload = data.get("Payload") or {}
-    products = (payload.get("SearchResults") if isinstance(payload, dict) else None) or \
-               data.get("SearchResults") or data.get("Products") or []
+@app.get("/api/xbox-setup-poll")
+async def xbox_setup_poll(device_code: str, interval: int = 5):
+    """Poll for completion of the device code flow. Call repeatedly until status=done."""
+    if not config.XBOX_CLIENT_ID:
+        raise HTTPException(status_code=400, detail="XBOX_CLIENT_ID not set in .env")
+    from app.xbox_auth import poll_device_flow, get_tokens, _save_refresh_token
+    try:
+        refresh_token = await poll_device_flow(config.XBOX_CLIENT_ID, device_code)
+    except RuntimeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if refresh_token is None:
+        return {"status": "pending", "message": f"Still waiting — try again in {interval}s"}
+    _save_refresh_token(refresh_token)
+    try:
+        tokens = await get_tokens(config.XBOX_CLIENT_ID, refresh_token)
+        xuid = tokens.xuid
+    except Exception as e:
+        xuid = "unknown"
+        log.warning("Could not fetch XUID after auth: %s", e)
     return {
-        "game": row["name"],
-        "clean_name": clean,
-        "pfn": pfn,
-        "search_url": url,
-        "status_code": resp.status_code,
-        "top_level_keys": list(data.keys()),
-        "payload_keys": list(payload.keys()) if isinstance(payload, dict) else type(payload).__name__,
-        "product_count": len(products) if isinstance(products, list) else None,
-        "pfn_match": next((p.get("ProductId") for p in products if pfn in (p.get("PackageFamilyNames") or [])), None),
-        "all_pfns": [p.get("PackageFamilyNames") for p in products[:5]] if products else [],
-        "first_result_title": products[0].get("Title") if products else None,
+        "status": "done",
+        "xuid": xuid,
+        "message": "Xbox authenticated successfully. The refresh token has been saved. Run a sync to import your games.",
+        "env_hint": f"You can also set XBOX_REFRESH_TOKEN={refresh_token} in your .env for persistence across container recreations.",
     }
 
 

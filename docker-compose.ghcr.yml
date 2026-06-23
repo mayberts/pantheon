@@ -28,12 +28,14 @@ services:
       RA_USERNAME: ${RA_USERNAME:-}
       RA_API_KEY: ${RA_API_KEY:-}
       RA_TARGET_USER: ${RA_TARGET_USER:-}
-      XBOX_OPENXBL_KEY: ${XBOX_OPENXBL_KEY:-}
-      XBOX_XUID: ${XBOX_XUID:-}
+      XBOX_CLIENT_ID: ${XBOX_CLIENT_ID:-}
+      XBOX_REFRESH_TOKEN: ${XBOX_REFRESH_TOKEN:-}
       IGDB_CLIENT_ID: ${IGDB_CLIENT_ID:-}
       IGDB_CLIENT_SECRET: ${IGDB_CLIENT_SECRET:-}
       SYNC_INTERVAL_HOURS: ${SYNC_INTERVAL_HOURS:-12}
       REQUEST_DELAY_SECONDS: ${REQUEST_DELAY_SECONDS:-0.4}
+    volumes:
+      - /mnt/user/appdata/pantheon/data:/data
     ports:
       - "8744:8000"
     depends_on:
