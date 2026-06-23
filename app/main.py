@@ -677,32 +677,24 @@ async def trigger_sync():
 
 @app.get("/api/xbox-setup")
 async def xbox_setup():
-    """Start the Xbox device-code auth flow. Returns a URL and code for the user to sign in."""
-    from app.xbox_auth import start_device_flow
-    try:
-        data = await start_device_flow()
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Microsoft auth failed: {e}")
+    """Step 1: Get the sign-in URL. Open it in a browser, sign in, then copy the redirect URL."""
+    from app.xbox_auth import get_auth_url
+    url = get_auth_url()
     return {
-        "instructions": "Go to the URL below and enter the code to sign in with your Microsoft account.",
-        "verification_uri": data.get("verification_uri"),
-        "user_code": data.get("user_code"),
-        "expires_in_seconds": data.get("expires_in"),
-        "next_step": f"Then hit GET /api/xbox-setup-poll?device_code={data.get('device_code')}&interval={data.get('interval', 5)}",
+        "sign_in_url": url,
+        "instructions": "Open sign_in_url in a browser and sign in with your Microsoft account. After sign-in you will be redirected to a blank page — copy the full URL from the address bar.",
+        "next_step": "Hit GET /api/xbox-setup-complete?redirect_url=<paste URL here>",
     }
 
 
-@app.get("/api/xbox-setup-poll")
-async def xbox_setup_poll(device_code: str, interval: int = 5):
-    """Poll for completion of the device code flow. Call repeatedly until status=done."""
-    from app.xbox_auth import poll_device_flow, get_tokens, _save_refresh_token
+@app.get("/api/xbox-setup-complete")
+async def xbox_setup_complete(redirect_url: str):
+    """Step 2: Exchange the auth code from the redirect URL for a refresh token."""
+    from app.xbox_auth import exchange_code, get_tokens
     try:
-        refresh_token = await poll_device_flow(device_code)
-    except RuntimeError as e:
+        refresh_token = await exchange_code(redirect_url)
+    except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-    if refresh_token is None:
-        return {"status": "pending", "message": f"Still waiting — try again in {interval}s"}
-    _save_refresh_token(refresh_token)
     try:
         tokens = await get_tokens(refresh_token)
         xuid = tokens.xuid

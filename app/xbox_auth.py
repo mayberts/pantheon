@@ -1,9 +1,12 @@
 """
-Xbox Live authentication via Microsoft Live device code flow.
+Xbox Live authentication via Microsoft Live OAuth2 auth code flow.
 
 Setup (one-time):
-  1. Hit GET /api/xbox-setup and follow the instructions to sign in
-  2. The app saves the refresh token automatically
+  1. Hit GET /api/xbox-setup — get a sign-in URL
+  2. Open the URL in a browser, sign in with your Microsoft account
+  3. After sign-in you'll be redirected to a blank page — copy the full URL from the address bar
+  4. Hit GET /api/xbox-setup-complete?redirect_url=<paste URL here>
+  5. Done — refresh token is saved automatically
 
 No Azure app registration needed.
 """
@@ -11,22 +14,21 @@ No Azure app registration needed.
 import logging
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse, urlencode
 
 import httpx
 
 log = logging.getLogger(__name__)
 
-# Microsoft Live auth endpoints (used by Xbox apps, not Azure AD)
-_MS_DEVICE_URL = "https://login.live.com/oauth20_connect.srf"
+_AUTH_URL = "https://login.live.com/oauth20_authorize.srf"
 _MS_TOKEN_URL = "https://login.live.com/oauth20_token.srf"
+_REDIRECT_URI = "https://login.live.com/oauth20_desktop.srf"
 _XBL_URL = "https://user.auth.xboxlive.com/user/authenticate"
 _XSTS_URL = "https://xsts.auth.xboxlive.com/xsts/authorize"
 
-# Well-known public client ID used by Xbox community tools
 _CLIENT_ID = "000000004C12AE6F"
 _SCOPE = "XboxLive.signin offline_access"
 
-# Path where refresh token is persisted between container restarts
 _TOKEN_FILE = Path("/data/xbox_refresh_token.txt")
 
 
@@ -41,36 +43,46 @@ class XboxTokens:
         return f"XBL3.0 x={self.user_hash};{self.xsts_token}"
 
 
-async def start_device_flow() -> dict:
-    """Start device code flow. Returns {user_code, verification_uri, device_code, interval, expires_in}."""
-    async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.post(
-            _MS_DEVICE_URL,
-            data={"client_id": _CLIENT_ID, "scope": _SCOPE, "response_type": "device_code"},
+def get_auth_url() -> str:
+    """Return the URL the user must open in a browser to sign in."""
+    params = urlencode({
+        "client_id": _CLIENT_ID,
+        "response_type": "code",
+        "approval_prompt": "auto",
+        "scope": _SCOPE,
+        "redirect_uri": _REDIRECT_URI,
+    })
+    return f"{_AUTH_URL}?{params}"
+
+
+async def exchange_code(redirect_url: str) -> str:
+    """Extract auth code from the redirect URL and exchange it for a refresh token."""
+    parsed = urlparse(redirect_url)
+    params = parse_qs(parsed.query)
+    code = (params.get("code") or [""])[0]
+    if not code:
+        raise RuntimeError(
+            f"No 'code' parameter found in the URL. Make sure you copied the full redirect URL. Got: {redirect_url[:200]}"
         )
-        if not resp.is_success:
-            raise RuntimeError(f"HTTP {resp.status_code}: {resp.text}")
-        return resp.json()
-
-
-async def poll_device_flow(device_code: str) -> str | None:
-    """Poll for token. Returns refresh_token on success, None if still pending."""
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.post(
             _MS_TOKEN_URL,
             data={
                 "client_id": _CLIENT_ID,
-                "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
-                "device_code": device_code,
+                "code": code,
+                "grant_type": "authorization_code",
+                "redirect_uri": _REDIRECT_URI,
+                "scope": _SCOPE,
             },
         )
-    data = resp.json()
-    if "refresh_token" in data:
-        return data["refresh_token"]
-    error = data.get("error", "")
-    if error == "authorization_pending":
-        return None
-    raise RuntimeError(f"Device flow error: {error} — {data.get('error_description', '')}")
+        if not resp.is_success:
+            raise RuntimeError(f"Token exchange failed: {resp.text}")
+        data = resp.json()
+    refresh_token = data.get("refresh_token")
+    if not refresh_token:
+        raise RuntimeError(f"No refresh_token in response: {data}")
+    _save_refresh_token(refresh_token)
+    return refresh_token
 
 
 async def _get_ms_access_token(refresh_token: str) -> str:
@@ -156,7 +168,6 @@ async def get_tokens(refresh_token: str) -> XboxTokens:
 
 
 def load_refresh_token() -> str | None:
-    """Load persisted refresh token from file."""
     try:
         return _TOKEN_FILE.read_text().strip() or None
     except FileNotFoundError:
