@@ -106,7 +106,8 @@
   .p-bar .fill { height: 100%; background: var(--cyan-dim); }
 
   /* ── Library controls ── */
-  .library-controls { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .library-controls { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+  .lib-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .sort-tabs { display: flex; border: 1px solid var(--border); }
   .sort-tab { background: none; border: none; border-right: 1px solid var(--border); color: var(--muted2); font-family: inherit; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; padding: 7px 16px; cursor: pointer; transition: background 0.12s, color 0.12s; }
   .sort-tab:last-child { border-right: none; }
@@ -117,6 +118,11 @@
   .search-box::placeholder { color: var(--muted); }
   .plat-filter { background: var(--bg2); border: 1px solid var(--border); color: var(--text); font-family: inherit; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; padding: 7px 12px; outline: none; cursor: pointer; }
   .lib-count { margin-left: auto; font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted2); }
+  .filter-label { font-size: 0.65rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); font-weight: 600; white-space: nowrap; }
+  .filter-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .filter-chip { background: none; border: 1px solid var(--border); color: var(--muted2); font-family: inherit; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; padding: 4px 12px; cursor: pointer; transition: all 0.12s; }
+  .filter-chip:hover { border-color: var(--border2); color: var(--text); }
+  .filter-chip.active { background: var(--surface); border-color: var(--cyan-dim); color: var(--cyan); }
 
   /* ── Game grid ── */
   .game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
@@ -418,26 +424,31 @@
   </div>
 
   <div class="library-controls">
-    <div class="sort-tabs">
-      <button class="sort-tab active" data-sort="completion" onclick="setSort(this)">Completion</button>
-      <button class="sort-tab" data-sort="recent" onclick="setSort(this)">Recent</button>
-      <button class="sort-tab" data-sort="playtime" onclick="setSort(this)">Playtime</button>
-      <button class="sort-tab" data-sort="name" onclick="setSort(this)">Name</button>
+    <div class="lib-row">
+      <div class="sort-tabs">
+        <button class="sort-tab active" data-sort="completion" onclick="setSort(this)">Completion</button>
+        <button class="sort-tab" data-sort="recent" onclick="setSort(this)">Recent</button>
+        <button class="sort-tab" data-sort="playtime" onclick="setSort(this)">Playtime</button>
+        <button class="sort-tab" data-sort="name" onclick="setSort(this)">Name</button>
+      </div>
+      <input class="search-box" type="text" id="searchInput" placeholder="Search games…" oninput="onSearch()">
+      <select class="plat-filter" id="platFilter" onchange="loadGames()">
+        <option value="">All Platforms</option>
+        <option value="steam">Steam</option>
+        <option value="retroachievements">RetroAchievements</option>
+        <option value="xbox">Xbox</option>
+      </select>
+      <span class="lib-count" id="libCount"></span>
     </div>
-    <div class="sort-tabs">
-      <button class="sort-tab active" data-completion="" onclick="setCompletion(this)">All</button>
-      <button class="sort-tab" data-completion="completed" onclick="setCompletion(this)">Completed</button>
-      <button class="sort-tab" data-completion="in_progress" onclick="setCompletion(this)">In Progress</button>
-      <button class="sort-tab" data-completion="not_started" onclick="setCompletion(this)">Not Started</button>
+    <div class="lib-row">
+      <span class="filter-label">Show</span>
+      <div class="filter-chips">
+        <button class="filter-chip active" data-completion="" onclick="setCompletion(this)">All</button>
+        <button class="filter-chip" data-completion="completed" onclick="setCompletion(this)">Completed</button>
+        <button class="filter-chip" data-completion="in_progress" onclick="setCompletion(this)">In Progress</button>
+        <button class="filter-chip" data-completion="not_started" onclick="setCompletion(this)">Not Started</button>
+      </div>
     </div>
-    <input class="search-box" type="text" id="searchInput" placeholder="Search games…" oninput="onSearch()">
-    <select class="plat-filter" id="platFilter" onchange="loadGames()">
-      <option value="">All Platforms</option>
-      <option value="steam">Steam</option>
-      <option value="retroachievements">RetroAchievements</option>
-      <option value="xbox">Xbox</option>
-    </select>
-    <span class="lib-count" id="libCount"></span>
   </div>
 
   <div class="game-grid" id="gameGrid"></div>
@@ -924,7 +935,7 @@ function setSort(btn) {
 }
 
 function setCompletion(btn) {
-  btn.closest('.sort-tabs').querySelectorAll('.sort-tab').forEach(b => b.classList.remove('active'));
+  btn.closest('.filter-chips').querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   currentCompletion = btn.dataset.completion;
   loadGames();
