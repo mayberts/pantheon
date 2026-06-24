@@ -43,7 +43,8 @@ class RetroAchievementsPlatform(Platform):
                 await db.upsert_user_game(conn, linked_id, pg_id, 0, earned, total, None)
 
                 # Skip detail fetch if earned count hasn't changed
-                if earned_cache.get(ra_id) == earned:
+                cached = earned_cache.get(ra_id)
+                if cached and cached["earned"] == earned:
                     continue
 
                 # Per-achievement detail
