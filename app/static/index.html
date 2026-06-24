@@ -137,6 +137,10 @@
     display: block;
     background: var(--surface);
   }
+  .game-card-banner.portrait {
+    aspect-ratio: 3 / 4;
+    object-fit: cover;
+  }
   .game-card-banner-ph {
     width: 100%;
     aspect-ratio: 460 / 215;
@@ -185,6 +189,29 @@
   /* ── Pagination ── */
   .scroll-sentinel { height: 1px; }
   .scroll-loading { text-align: center; padding: 16px; color: var(--muted2); font-size: 0.8rem; letter-spacing: 0.1em; }
+
+  /* ── Back to top ── */
+  .back-to-top {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    color: var(--cyan);
+    font-size: 1.1rem;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s, border-color 0.15s;
+    z-index: 200;
+  }
+  .back-to-top.visible { opacity: 1; pointer-events: auto; }
+  .back-to-top:hover { border-color: var(--cyan); }
 
   /* ── Empty ── */
   .empty-state { background: var(--bg2); border: 1px dashed var(--border2); padding: 40px; text-align: center; color: var(--muted2); font-size: 0.82rem; letter-spacing: 0.1em; }
@@ -397,6 +424,12 @@
       <button class="sort-tab" data-sort="playtime" onclick="setSort(this)">Playtime</button>
       <button class="sort-tab" data-sort="name" onclick="setSort(this)">Name</button>
     </div>
+    <div class="sort-tabs">
+      <button class="sort-tab active" data-completion="" onclick="setCompletion(this)">All</button>
+      <button class="sort-tab" data-completion="completed" onclick="setCompletion(this)">Completed</button>
+      <button class="sort-tab" data-completion="in_progress" onclick="setCompletion(this)">In Progress</button>
+      <button class="sort-tab" data-completion="not_started" onclick="setCompletion(this)">Not Started</button>
+    </div>
     <input class="search-box" type="text" id="searchInput" placeholder="Search games…" oninput="onSearch()">
     <select class="plat-filter" id="platFilter" onchange="loadGames()">
       <option value="">All Platforms</option>
@@ -493,6 +526,7 @@
 
 <script>
 let currentSort = 'completion';
+let currentCompletion = '';
 let searchTimer = null;
 
 // ── Router ────────────────────────────────────────────────────────────────────
@@ -808,6 +842,7 @@ async function loadGames(reset = true) {
   let url = `/api/games?sort=${sort}&page=${_gamesPage}&page_size=48`;
   if (platform) url += `&platform=${encodeURIComponent(platform)}`;
   if (search) url += `&search=${encodeURIComponent(search)}`;
+  if (currentCompletion) url += `&completion=${encodeURIComponent(currentCompletion)}`;
   const data = await apiFetch(url);
   _gamesLoading = false;
   if (loading) loading.style.display = 'none';
@@ -845,12 +880,14 @@ function setupScrollObserver() {
 function gameCardHTML(g) {
   const pct = parseFloat(g.completion_pct) || 0;
   const full = pct >= 100;
-  const bannerUrl = g.platform === 'steam'
+  const isSteam = g.platform === 'steam';
+  const bannerUrl = isSteam
     ? `https://cdn.akamai.steamstatic.com/steam/apps/${g.platform_app_id}/header.jpg`
     : g.igdb_cover_url || g.icon_url;
+  const isPortrait = !isSteam && !!g.igdb_cover_url;
 
   const banner = bannerUrl
-    ? `<img class="game-card-banner" src="${bannerUrl}" alt="" onerror="this.outerHTML='<div class=game-card-banner-ph>◈</div>'">`
+    ? `<img class="game-card-banner${isPortrait ? ' portrait' : ''}" src="${bannerUrl}" alt="" onerror="this.outerHTML='<div class=game-card-banner-ph>◈</div>'">`
     : `<div class="game-card-banner-ph">◈</div>`;
 
   const badge = g.platform === 'steam'
@@ -880,9 +917,16 @@ function gameCardHTML(g) {
 
 
 function setSort(btn) {
-  document.querySelectorAll('.sort-tab').forEach(b => b.classList.remove('active'));
+  btn.closest('.sort-tabs').querySelectorAll('.sort-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   currentSort = btn.dataset.sort;
+  loadGames();
+}
+
+function setCompletion(btn) {
+  btn.closest('.sort-tabs').querySelectorAll('.sort-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentCompletion = btn.dataset.completion;
   loadGames();
 }
 
@@ -1168,6 +1212,14 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// ── Back to top ──────────────────────────────────────────────────────────────
+(function() {
+  const btn = document.getElementById('backToTop');
+  window.addEventListener('scroll', () => {
+    btn.classList.toggle('visible', window.scrollY > 400);
+  }, { passive: true });
+})();
+
 // ── Boot ──────────────────────────────────────────────────────────────────────
 (function boot() {
   const path = window.location.pathname;
@@ -1181,8 +1233,10 @@ function esc(s) {
   });
 })();
 </script>
+<button class="back-to-top" id="backToTop" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top">↑</button>
+
 <div id="platformModal" style="display:none;position:fixed;inset:0;z-index:1000;background:#000a;overflow-y:auto" onclick="if(event.target===this)closePlatformModal()">
-  <div style="max-width:780px;margin:48px auto;background:var(--surface1);border:1px solid var(--border);padding:24px 28px">
+  <div style="max-width:780px;margin:48px auto;background:var(--surface);border:1px solid var(--border);padding:24px 28px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <div id="platformModalTitle" style="font-size:1rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--cyan)"></div>
       <button onclick="closePlatformModal()" style="background:none;border:none;color:var(--muted2);font-size:1.2rem;cursor:pointer">✕</button>
