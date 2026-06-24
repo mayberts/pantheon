@@ -35,11 +35,16 @@ async def _get_token() -> str | None:
     return _token
 
 
+import re
+
+
 _PLATFORM_IDS: dict[str, list[int]] = {
     "xbox": [12, 49, 169],   # Xbox 360, Xbox One, Xbox Series X/S
     "steam": [6],            # PC (Windows)
     "retroachievements": [], # many old platforms — don't filter
 }
+
+_CLEAN_RE = re.compile(r'[®™©]')
 
 
 async def search_cover(name: str, platform: str = "") -> tuple[int, str] | None:
@@ -51,12 +56,13 @@ async def search_cover(name: str, platform: str = "") -> tuple[int, str] | None:
         "Client-ID": config.IGDB_CLIENT_ID,
         "Authorization": f"Bearer {token}",
     }
+    clean_name = _CLEAN_RE.sub('', name).strip()
     platform_ids = _PLATFORM_IDS.get(platform, [])
     if platform_ids:
-        ids = ",".join(str(i) for i in platform_ids)
-        body = f'search "{name}"; fields id,name,cover.url; where platforms = ({ids}); limit 5;'
+        plat_filter = " | ".join(f"platforms = ({pid})" for pid in platform_ids)
+        body = f'search "{clean_name}"; fields id,name,cover.url; where ({plat_filter}); limit 5;'
     else:
-        body = f'search "{name}"; fields id,name,cover.url; limit 5;'
+        body = f'search "{clean_name}"; fields id,name,cover.url; limit 5;'
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.post(f"{_BASE}/games", headers=headers, content=body)
     if resp.status_code != 200:
