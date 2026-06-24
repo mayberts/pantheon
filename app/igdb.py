@@ -35,7 +35,14 @@ async def _get_token() -> str | None:
     return _token
 
 
-async def search_cover(name: str) -> tuple[int, str] | None:
+_PLATFORM_IDS: dict[str, list[int]] = {
+    "xbox": [12, 49, 169],   # Xbox 360, Xbox One, Xbox Series X/S
+    "steam": [6],            # PC (Windows)
+    "retroachievements": [], # many old platforms — don't filter
+}
+
+
+async def search_cover(name: str, platform: str = "") -> tuple[int, str] | None:
     """Return (igdb_id, cover_url) for the best match, or None."""
     token = await _get_token()
     if not token:
@@ -44,7 +51,12 @@ async def search_cover(name: str) -> tuple[int, str] | None:
         "Client-ID": config.IGDB_CLIENT_ID,
         "Authorization": f"Bearer {token}",
     }
-    body = f'search "{name}"; fields id,name,cover.url; limit 5;'
+    platform_ids = _PLATFORM_IDS.get(platform, [])
+    if platform_ids:
+        ids = ",".join(str(i) for i in platform_ids)
+        body = f'search "{name}"; fields id,name,cover.url; where platforms = ({ids}); limit 5;'
+    else:
+        body = f'search "{name}"; fields id,name,cover.url; limit 5;'
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.post(f"{_BASE}/games", headers=headers, content=body)
     if resp.status_code != 200:
@@ -53,9 +65,8 @@ async def search_cover(name: str) -> tuple[int, str] | None:
     results = resp.json()
     if not results:
         return None
-    # Pick first result that has a cover
     for r in results:
         if r.get("cover", {}).get("url"):
-            cover = r["cover"]["url"].replace("//", "https://").replace("t_thumb", "t_cover_big")
+            cover = r["cover"]["url"].replace("//", "https://").replace("t_thumb", "t_cover_big_2x")
             return r["id"], cover
     return None

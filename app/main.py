@@ -28,24 +28,30 @@ _sync_progress: dict = {
 }
 
 
-async def _enrich_igdb() -> None:
+async def _enrich_igdb(retry_failed: bool = False) -> None:
     """Fetch IGDB cover art for games that don't have it yet (parallel with semaphore)."""
     if not config.IGDB_CLIENT_ID or not config.IGDB_CLIENT_SECRET:
         return
     from app.igdb import search_cover
     pool = await db.get_pool()
     async with pool.connection() as conn:
-        rows = await _fetch(
-            conn,
-            "SELECT id, name FROM platform_games WHERE igdb_id IS NULL AND total_achievements > 0",
-        )
+        if retry_failed:
+            rows = await _fetch(
+                conn,
+                "SELECT id, name, platform FROM platform_games WHERE (igdb_id IS NULL OR igdb_id = -1) AND total_achievements > 0",
+            )
+        else:
+            rows = await _fetch(
+                conn,
+                "SELECT id, name, platform FROM platform_games WHERE igdb_id IS NULL AND total_achievements > 0",
+            )
     log.info("IGDB enrichment: %d games to look up", len(rows))
     sem = asyncio.Semaphore(5)
 
     async def _lookup(row):
         async with sem:
             try:
-                result = await search_cover(row["name"])
+                result = await search_cover(row["name"], row["platform"])
                 if result:
                     igdb_id, cover_url = result
                     async with pool.connection() as conn:
@@ -872,6 +878,13 @@ async def hltb_refresh():
     async with pool.connection() as conn:
         await conn.execute("UPDATE platform_games SET hltb_main=NULL, hltb_extra=NULL, hltb_complete=NULL")
     asyncio.create_task(_enrich_hltb())
+    return {"status": "started"}
+
+
+@app.post("/api/igdb-refresh", status_code=202)
+async def igdb_refresh():
+    """Re-run IGDB enrichment including previously failed (-1) lookups."""
+    asyncio.create_task(_enrich_igdb(retry_failed=True))
     return {"status": "started"}
 
 
