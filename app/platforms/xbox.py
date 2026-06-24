@@ -103,9 +103,32 @@ class XboxPlatform(Platform):
                 await asyncio.sleep(delay)
 
                 if is_360:
-                    # User endpoint only returns earned achievements (no locked).
-                    # Paginate through all earned achievements.
-                    achievements = []
+                    # Fetch ALL achievements from title endpoint (includes locked)
+                    all_achievements = []
+                    continuation = None
+                    while True:
+                        params = {"maxItems": 1000}
+                        if continuation:
+                            params["continuationToken"] = continuation
+                        title_resp = await client.get(
+                            f"{_ACH}/titles/{title_id}/achievements",
+                            params=params,
+                            headers=_xbl_headers(tokens, contract="1"),
+                        )
+                        if title_resp.status_code == 429:
+                            log.warning("Xbox Live rate limit hit")
+                            raise RuntimeError("Xbox Live rate limit — try again later")
+                        if title_resp.status_code != 200:
+                            log.warning("360 title achievements fetch failed for %s: HTTP %d", name, title_resp.status_code)
+                            break
+                        data = title_resp.json()
+                        all_achievements.extend(data.get("achievements") or [])
+                        continuation = (data.get("pagingInfo") or {}).get("continuationToken")
+                        if not continuation:
+                            break
+
+                    # Fetch earned achievements for unlock timestamps
+                    earned_achievements = []
                     continuation = None
                     while True:
                         params = {"titleId": title_id, "maxItems": 1000}
@@ -120,14 +143,20 @@ class XboxPlatform(Platform):
                             log.warning("Xbox Live rate limit hit")
                             raise RuntimeError("Xbox Live rate limit — try again later")
                         if ach_resp.status_code != 200:
-                            log.warning("360 achievements fetch failed for %s: HTTP %d", name, ach_resp.status_code)
                             break
                         data = ach_resp.json()
-                        achievements.extend(data.get("achievements") or [])
+                        earned_achievements.extend(data.get("achievements") or [])
                         continuation = (data.get("pagingInfo") or {}).get("continuationToken")
                         if not continuation:
                             break
-                    earned_map = {}  # not used for 360 — each ach IS earned
+
+                    # Build earned map: id -> timeUnlocked
+                    earned_map = {
+                        str(a.get("id")): a.get("timeUnlocked")
+                        for a in earned_achievements
+                    }
+                    # Use all achievements if title endpoint worked, else fall back to earned only
+                    achievements = all_achievements if all_achievements else earned_achievements
                 else:
                     ach_resp = await client.get(
                         f"{_ACH}/users/xuid({xuid})/achievements",
@@ -188,9 +217,8 @@ class XboxPlatform(Platform):
                             pass
 
                     if is_360:
-                        # User endpoint only returns earned achievements for 360
-                        unlocked = True
-                        time_str = ach.get("timeUnlocked")
+                        time_str = earned_map.get(ach_id)
+                        unlocked = time_str is not None
                         unlocked_at = None
                         if time_str and time_str not in ("", "0001-01-01T00:00:00.0000000Z", "0001-01-01T00:00:00Z"):
                             try:
