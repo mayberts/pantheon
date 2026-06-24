@@ -118,7 +118,11 @@ async def _enrich_exophase_360_icons() -> None:
     pool = await db.get_pool()
     async with httpx.AsyncClient(timeout=30) as client:
         try:
-            exo_games = await fetch_games_list(client, config.EXOPHASE_PLAYER_ID)
+            exo_games = await fetch_games_list(
+                client, config.EXOPHASE_PLAYER_ID,
+                rememberme=config.EXOPHASE_REMEMBERME,
+                xf_user=config.EXOPHASE_XF_USER,
+            )
         except Exception:
             log.exception("Exophase games list fetch failed")
             return
@@ -884,7 +888,11 @@ async def exophase_debug():
     pool = await db.get_pool()
     async with httpx.AsyncClient(timeout=30) as client:
         try:
-            exo_games = await fetch_games_list(client, config.EXOPHASE_PLAYER_ID)
+            exo_games = await fetch_games_list(
+                client, config.EXOPHASE_PLAYER_ID,
+                rememberme=config.EXOPHASE_REMEMBERME,
+                xf_user=config.EXOPHASE_XF_USER,
+            )
         except Exception as e:
             return {"error": f"Games list fetch failed: {e}"}
 
