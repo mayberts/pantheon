@@ -759,6 +759,19 @@ async def hltb_test(name: str = Query(...)):
         return {"error": str(e)}
 
 
+@app.post("/api/exophase-refresh", status_code=202)
+async def exophase_refresh():
+    """Clear all Exophase-sourced icons and re-enrich from scratch."""
+    pool = await db.get_pool()
+    async with pool.connection() as conn:
+        await conn.execute(
+            "UPDATE achievements SET icon_url = NULL "
+            "WHERE icon_url LIKE '%exophase%'"
+        )
+    asyncio.create_task(_enrich_exophase_360_icons())
+    return {"status": "started"}
+
+
 @app.post("/api/hltb-refresh", status_code=202)
 async def hltb_refresh():
     """Reset all HLTB data and re-enrich from scratch."""

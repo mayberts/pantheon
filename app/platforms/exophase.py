@@ -6,7 +6,7 @@ import httpx
 log = logging.getLogger(__name__)
 
 _API = "https://api.exophase.com"
-_IMG_BASE = "https://www.exophase.com"
+_IMG_BASE = "https://m.exophase.com"
 _BASE_HEADERS = {
     "Origin": "https://www.exophase.com",
     "Referer": "https://www.exophase.com/",
