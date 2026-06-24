@@ -115,7 +115,7 @@ _EXOPHASE_TITLE_ALIASES: dict[str, str] = {
     "gta-iv": "grand-theft-auto-iv",
     "gta-iv-pc": "grand-theft-auto-iv",
     "modern-warfare": "call-of-duty-4-modern-warfare",
-    "brothers-in-arms-hh": "brothers-in-arms-hell-s-highway",
+    "brothers-in-arms-hh": "brothers-in-arms-hells-highway",
     "nfs-undercover": "need-for-speed-undercover",
     "nfs-prostreet": "need-for-speed-prostreet",
     "guitar-hero-iii": "guitar-hero-iii-legends-of-rock",
