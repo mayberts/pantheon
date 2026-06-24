@@ -20,7 +20,7 @@ _PAGE_HEADERS = {
 }
 
 _IMG_TAG = re.compile(r'<img[^>]+class="[^"]*award-image[^"]*"[^>]*>', re.DOTALL)
-_TIPPY_NAME = re.compile(r'data-tippy-content=".*?<strong>(.*?)</strong>', re.DOTALL)
+_TIPPY_NAME = re.compile(r'data-tippy-content=".*?&lt;strong&gt;(.*?)&lt;/strong&gt;', re.DOTALL)
 _SRC = re.compile(r'\bsrc="(https://m\.exophase\.com/[^"?]+)')
 
 
