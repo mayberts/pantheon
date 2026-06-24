@@ -122,7 +122,8 @@
   .lib-search-wrap { display: flex; align-items: center; flex: 1; padding: 0 12px; min-width: 160px; }
   .search-box { background: transparent; border: none; color: var(--text); font-family: inherit; font-size: 0.8rem; padding: 10px 0; outline: none; width: 100%; letter-spacing: 0.04em; }
   .search-box::placeholder { color: var(--muted); }
-  .plat-filter { background: transparent; border: none; border-left: 1px solid var(--border); color: var(--text); font-family: inherit; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; padding: 10px 14px; outline: none; cursor: pointer; }
+  .plat-filter { background: var(--bg2); border: none; border-left: 1px solid var(--border); color: var(--text); font-family: inherit; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; padding: 10px 14px; outline: none; cursor: pointer; }
+  .plat-filter option { background: var(--bg2); color: var(--text); }
   .lib-footer { display: flex; align-items: center; padding: 6px 14px; }
   .lib-count { font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); }
 
@@ -935,7 +936,7 @@ function gameCardHTML(g) {
 
 
 function setSort(btn) {
-  btn.closest('.sort-tabs').querySelectorAll('.sort-tab').forEach(b => b.classList.remove('active'));
+  btn.closest('.lib-group').querySelectorAll('.sort-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   currentSort = btn.dataset.sort;
   loadGames();
