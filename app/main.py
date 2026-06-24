@@ -873,6 +873,58 @@ async def status():
     }
 
 
+@app.get("/api/exophase-debug")
+async def exophase_debug():
+    """Debug Exophase integration: show games list fetch result and sample icon lookup."""
+    from app.platforms.exophase import fetch_games_list, fetch_earned_icons, _to_slug
+
+    if not config.EXOPHASE_PLAYER_ID:
+        return {"error": "EXOPHASE_PLAYER_ID not configured"}
+
+    pool = await db.get_pool()
+    async with httpx.AsyncClient(timeout=30) as client:
+        try:
+            exo_games = await fetch_games_list(client, config.EXOPHASE_PLAYER_ID)
+        except Exception as e:
+            return {"error": f"Games list fetch failed: {e}"}
+
+    xbox_360_games = [g for g in exo_games if g["is_360"]]
+    all_games_slugs = {_to_slug(g["title"]): g["master_id"] for g in exo_games}
+    xbox_360_slugs = {_to_slug(g["title"]): g["master_id"] for g in xbox_360_games}
+
+    # Get Xbox games in our DB that have achievements with no icons
+    async with pool.connection() as conn:
+        db_rows = await _fetch(
+            conn,
+            """
+            SELECT DISTINCT pg.name, COUNT(a.id) FILTER (WHERE a.icon_url IS NULL) AS missing_icons
+            FROM platform_games pg
+            JOIN achievements a ON a.platform_game_id = pg.id
+            WHERE pg.platform = 'xbox'
+            GROUP BY pg.name
+            ORDER BY missing_icons DESC
+            """,
+        )
+
+    match_results = []
+    for row in db_rows:
+        slug = _to_slug(row["name"])
+        match_results.append({
+            "db_game": row["name"],
+            "slug": slug,
+            "missing_icons": row["missing_icons"],
+            "exophase_match": all_games_slugs.get(slug),
+            "is_360_match": xbox_360_slugs.get(slug),
+        })
+
+    return {
+        "exophase_total_games": len(exo_games),
+        "exophase_360_games": len(xbox_360_games),
+        "exophase_360_titles": [g["title"] for g in xbox_360_games],
+        "db_xbox_games_with_missing_icons": match_results,
+    }
+
+
 @app.get("/{full_path:path}", include_in_schema=False)
 async def spa_fallback(full_path: str):
     return FileResponse("app/static/index.html")
