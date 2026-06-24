@@ -27,6 +27,7 @@ IGDB_CLIENT_SECRET = os.getenv("IGDB_CLIENT_SECRET", "")
 EXOPHASE_PLAYER_ID = os.getenv("EXOPHASE_PLAYER_ID", "")
 EXOPHASE_REMEMBERME = os.getenv("EXOPHASE_REMEMBERME", "")
 EXOPHASE_XF_USER = os.getenv("EXOPHASE_XF_USER", "")
+EXOPHASE_ACCESS_TOKEN = os.getenv("EXOPHASE_ACCESS_TOKEN", "")
 
 
 def enabled_accounts() -> list[dict]:
