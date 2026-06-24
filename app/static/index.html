@@ -695,6 +695,11 @@ async function loadStats() {
   }
 
   // Platform bar chart
+  const platColors = {
+    xbox:              { bg: '#107c10cc', border: '#4ec94e' },
+    steam:             { bg: '#1b6fa8cc', border: '#66c0f4' },
+    retroachievements: { bg: '#444466cc', border: '#8888bb' },
+  };
   destroyChart('platformChart');
   charts['platformChart'] = new Chart(document.getElementById('platformChart'), {
     type: 'bar',
@@ -702,8 +707,8 @@ async function loadStats() {
       labels: d.platforms.map(p => platLabel(p.platform)),
       datasets: [{
         data: d.platforms.map(p => p.earned),
-        backgroundColor: '#00a8b8cc',
-        borderColor: '#00d4e8',
+        backgroundColor: d.platforms.map(p => (platColors[p.platform] || { bg: '#00a8b8cc' }).bg),
+        borderColor:     d.platforms.map(p => (platColors[p.platform] || { border: '#00d4e8' }).border),
         borderWidth: 1,
         borderRadius: 2,
       }]
@@ -722,12 +727,13 @@ async function loadStats() {
     },
   });
 
-  // Progression line chart
+  // Progression line chart — only show yearly x-axis labels
+  const yearLabels = d.progression.map(r => r.month);
   destroyChart('progressionChart');
   charts['progressionChart'] = new Chart(document.getElementById('progressionChart'), {
     type: 'line',
     data: {
-      labels: d.progression.map(r => r.month),
+      labels: yearLabels,
       datasets: [{
         data: d.progression.map(r => r.total),
         borderColor: '#4f6ef7',
@@ -738,7 +744,28 @@ async function loadStats() {
         tension: 0.3,
       }]
     },
-    options: chartOpts({ showLabels: false }),
+    options: {
+      ...chartOpts({ showLabels: false }),
+      scales: {
+        x: {
+          ticks: {
+            color: '#6b7f99',
+            font: { family: 'Rajdhani', size: 11 },
+            maxRotation: 0,
+            callback: function(val, idx) {
+              const label = yearLabels[idx] || '';
+              // Only show January of each year
+              return label.endsWith('-01') ? label.slice(0, 4) : '';
+            },
+          },
+          grid: { color: '#1e2a3a' },
+        },
+        y: {
+          ticks: { color: '#6b7f99', font: { family: 'Rajdhani', size: 11 } },
+          grid: { color: '#1e2a3a' },
+        },
+      },
+    },
   });
 }
 
