@@ -364,6 +364,7 @@ async def games(
     sort: str = Query("recent", pattern="^(completion|recent|playtime|name)$"),
     platform: str | None = None,
     search: str | None = None,
+    completion: str | None = Query(None, pattern="^(completed|in_progress|not_started)$"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=200),
 ):
@@ -378,11 +379,17 @@ async def games(
     params: list = []
 
     if platform:
-        filters.append(f"pg.platform = %s")
+        filters.append("pg.platform = %s")
         params.append(platform)
     if search:
-        filters.append(f"pg.name ILIKE %s")
+        filters.append("pg.name ILIKE %s")
         params.append(f"%{search}%")
+    if completion == "completed":
+        filters.append("ug.completion_pct >= 100")
+    elif completion == "in_progress":
+        filters.append("ug.earned_achievements > 0 AND ug.completion_pct < 100")
+    elif completion == "not_started":
+        filters.append("ug.earned_achievements = 0")
 
     where = "WHERE " + " AND ".join(filters)
     offset = (page - 1) * page_size
