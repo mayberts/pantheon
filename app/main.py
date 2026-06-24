@@ -771,6 +771,61 @@ async def exophase_refresh():
     return {"status": "started"}
 
 
+@app.post("/api/exophase-import-icons")
+async def exophase_import_icons(payload: dict):
+    """
+    Accept a JSON body {game_name: str, icons: {achievement_name: icon_url}}
+    and update matching achievements in the DB.
+    """
+    from app.platforms.exophase import _to_slug
+
+    game_name = payload.get("game_name", "")
+    icons: dict = payload.get("icons") or {}
+    if not game_name or not icons:
+        return {"error": "game_name and icons required"}
+
+    pool = await db.get_pool()
+    async with pool.connection() as conn:
+        rows = await _fetch(
+            conn,
+            """
+            SELECT a.id, a.name FROM achievements a
+            JOIN platform_games pg ON pg.id = a.platform_game_id
+            WHERE pg.platform = 'xbox' AND pg.name = %s
+            """,
+            game_name,
+        )
+
+    if not rows:
+        # Try slug match
+        async with pool.connection() as conn:
+            all_games = await _fetch(conn, "SELECT id, name FROM platform_games WHERE platform = 'xbox'")
+        db_slug = _to_slug(game_name)
+        matched = next((g for g in all_games if _to_slug(g["name"]) == db_slug), None)
+        if not matched:
+            return {"error": f"No xbox game found matching '{game_name}'"}
+        async with pool.connection() as conn:
+            rows = await _fetch(
+                conn,
+                "SELECT a.id, a.name FROM achievements a WHERE a.platform_game_id = %s",
+                matched["id"],
+            )
+
+    updated = 0
+    slug_icons = {_to_slug(k): v for k, v in icons.items()}
+    async with pool.connection() as conn:
+        for ach in rows:
+            icon_url = slug_icons.get(_to_slug(ach["name"]))
+            if icon_url:
+                await conn.execute(
+                    "UPDATE achievements SET icon_url = %s WHERE id = %s",
+                    (icon_url, ach["id"]),
+                )
+                updated += 1
+
+    return {"game_name": game_name, "achievements_found": len(rows), "icons_updated": updated}
+
+
 @app.post("/api/hltb-refresh", status_code=202)
 async def hltb_refresh():
     """Reset all HLTB data and re-enrich from scratch."""
