@@ -24,6 +24,8 @@ DATABASE_URL = os.getenv(
 IGDB_CLIENT_ID = os.getenv("IGDB_CLIENT_ID", "")
 IGDB_CLIENT_SECRET = os.getenv("IGDB_CLIENT_SECRET", "")
 
+EXOPHASE_PLAYER_ID = os.getenv("EXOPHASE_PLAYER_ID", "")
+
 
 def enabled_accounts() -> list[dict]:
     from app.xbox_auth import load_refresh_token
