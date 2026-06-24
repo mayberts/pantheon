@@ -113,15 +113,17 @@ async def _enrich_exophase_360_icons() -> None:
     if not config.EXOPHASE_PLAYER_ID:
         return
 
-    from app.platforms.exophase import fetch_games_list, fetch_earned_icons, _to_slug, make_authed_client
+    from app.platforms.exophase import get_access_token, fetch_games_list, fetch_earned_icons, _to_slug
+
+    access_token = await get_access_token(config.EXOPHASE_REMEMBERME, config.EXOPHASE_XF_USER)
+    if not access_token:
+        log.warning("Exophase: could not obtain ACCESS_TOKEN; skipping enrichment")
+        return
 
     pool = await db.get_pool()
-    async with make_authed_client(
-        rememberme=config.EXOPHASE_REMEMBERME,
-        xf_user=config.EXOPHASE_XF_USER,
-    ) as client:
+    async with httpx.AsyncClient(timeout=30) as client:
         try:
-            exo_games = await fetch_games_list(client, config.EXOPHASE_PLAYER_ID)
+            exo_games = await fetch_games_list(client, config.EXOPHASE_PLAYER_ID, access_token)
         except Exception:
             log.exception("Exophase games list fetch failed")
             return
@@ -166,7 +168,7 @@ async def _enrich_exophase_360_icons() -> None:
 
             try:
                 icons = await fetch_earned_icons(
-                    client, exo_game["master_playerid"], exo_game["master_id"]
+                    exo_game["master_playerid"], exo_game["master_id"]
                 )
             except Exception:
                 log.exception("Exophase earned fetch failed for %s", game_name)
@@ -879,18 +881,19 @@ async def status():
 @app.get("/api/exophase-debug")
 async def exophase_debug():
     """Debug Exophase integration: show games list fetch result and sample icon lookup."""
-    from app.platforms.exophase import fetch_games_list, fetch_earned_icons, _to_slug, make_authed_client
+    from app.platforms.exophase import get_access_token, fetch_games_list, fetch_earned_icons, _to_slug
 
     if not config.EXOPHASE_PLAYER_ID:
         return {"error": "EXOPHASE_PLAYER_ID not configured"}
 
+    access_token = await get_access_token(config.EXOPHASE_REMEMBERME, config.EXOPHASE_XF_USER)
+    if not access_token:
+        return {"error": "Could not obtain ACCESS_TOKEN — check EXOPHASE_REMEMBERME / EXOPHASE_XF_USER"}
+
     pool = await db.get_pool()
-    async with make_authed_client(
-        rememberme=config.EXOPHASE_REMEMBERME,
-        xf_user=config.EXOPHASE_XF_USER,
-    ) as client:
+    async with httpx.AsyncClient(timeout=30) as client:
         try:
-            exo_games = await fetch_games_list(client, config.EXOPHASE_PLAYER_ID)
+            exo_games = await fetch_games_list(client, config.EXOPHASE_PLAYER_ID, access_token)
         except Exception as e:
             return {"error": f"Games list fetch failed: {e}"}
 
