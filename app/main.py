@@ -894,8 +894,17 @@ async def hltb_refresh():
 
 
 @app.post("/api/igdb-refresh", status_code=202)
-async def igdb_refresh():
-    """Re-run IGDB enrichment including previously failed (-1) lookups."""
+async def igdb_refresh(platform: str | None = None):
+    """Re-run IGDB enrichment including previously failed (-1) lookups.
+    Pass ?platform=xbox to reset and retry only Xbox games."""
+    pool = await db.get_pool()
+    if platform:
+        async with pool.connection() as conn:
+            await conn.execute(
+                "UPDATE platform_games SET igdb_id = NULL WHERE platform = %s AND igdb_id = -1",
+                (platform,),
+            )
+        log.info("Reset failed IGDB lookups for platform=%s", platform)
     asyncio.create_task(_enrich_igdb(retry_failed=True))
     return {"status": "started"}
 
