@@ -878,6 +878,40 @@ async def status():
     }
 
 
+@app.get("/api/exophase-auth-probe")
+async def exophase_auth_probe():
+    """Raw probe of the Exophase /account/me token exchange — shows status, cookies, and body."""
+    from urllib.parse import unquote
+    from app.platforms.exophase import _API, _BASE_HEADERS
+
+    rememberme = config.EXOPHASE_REMEMBERME
+    xf_user = config.EXOPHASE_XF_USER
+
+    if not rememberme:
+        return {"error": "EXOPHASE_REMEMBERME not set"}
+
+    cookie_parts = []
+    if rememberme:
+        cookie_parts.append(f"REMEMBERME={unquote(rememberme)}")
+    if xf_user:
+        cookie_parts.append(f"xf_user={unquote(xf_user)}")
+
+    headers = dict(_BASE_HEADERS)
+    headers["Cookie"] = "; ".join(cookie_parts)
+
+    async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+        resp = await client.get(f"{_API}/account/me", headers=headers)
+
+    return {
+        "status_code": resp.status_code,
+        "response_cookies": dict(resp.cookies),
+        "request_headers_sent": {k: v for k, v in headers.items() if k != "Cookie"},
+        "cookie_header_length": len(headers.get("Cookie", "")),
+        "body_preview": resp.text[:500],
+        "redirect_history": [str(r.url) for r in resp.history],
+    }
+
+
 @app.get("/api/exophase-debug")
 async def exophase_debug():
     """Debug Exophase integration: show games list fetch result and sample icon lookup."""
