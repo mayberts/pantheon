@@ -75,8 +75,11 @@ class XboxPlatform(Platform):
                 pfn = title.get("pfn") or None
                 store_id = title.get("storeId") or None
 
+                title_history = title.get("titleHistory") or {}
+                playtime_minutes = int(title_history.get("minutesPlayed") or 0)
+
                 last_played_at = None
-                last_played_str = (title.get("titleHistory") or {}).get("lastTimePlayed")
+                last_played_str = title_history.get("lastTimePlayed")
                 if last_played_str:
                     try:
                         last_played_at = datetime.fromisoformat(
@@ -90,7 +93,7 @@ class XboxPlatform(Platform):
                     store_id=store_id, xbox_pfn=pfn,
                 )
                 await db.upsert_user_game(
-                    conn, linked_id, pg_id, 0, earned, total, last_played_at
+                    conn, linked_id, pg_id, playtime_minutes, earned, total, last_played_at
                 )
 
                 if earned == 0 and total > 0:
