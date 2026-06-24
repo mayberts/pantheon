@@ -798,11 +798,13 @@ async def exophase_import_icons(payload: dict):
         )
 
     if not rows:
-        # Try slug match
+        # Try slug match, then prefix match (e.g. DB "Guitar Hero III" vs Exophase "Guitar Hero III: Legends of Rock")
         async with pool.connection() as conn:
             all_games = await _fetch(conn, "SELECT id, name FROM platform_games WHERE platform = 'xbox'")
         db_slug = _to_slug(game_name)
         matched = next((g for g in all_games if _to_slug(g["name"]) == db_slug), None)
+        if not matched:
+            matched = next((g for g in all_games if db_slug.startswith(_to_slug(g["name"]) + "-") or _to_slug(g["name"]).startswith(db_slug + "-")), None)
         if not matched:
             return {"error": f"No xbox game found matching '{game_name}'"}
         async with pool.connection() as conn:
