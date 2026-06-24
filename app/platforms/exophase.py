@@ -1,5 +1,6 @@
 import re
 import logging
+from urllib.parse import unquote
 
 import httpx
 
@@ -21,33 +22,29 @@ def _to_slug(name: str) -> str:
     return s.strip("-")
 
 
-def _auth_headers(rememberme: str = "", xf_user: str = "") -> dict:
-    headers = dict(_HEADERS)
-    if rememberme or xf_user:
-        parts = []
-        if rememberme:
-            parts.append(f"REMEMBERME={rememberme}")
-        if xf_user:
-            parts.append(f"xf_user={xf_user}")
-        headers["Cookie"] = "; ".join(parts)
-    return headers
+def make_authed_client(rememberme: str = "", xf_user: str = "") -> httpx.AsyncClient:
+    """Return an httpx client with Exophase auth cookies pre-loaded."""
+    cookies: dict[str, str] = {}
+    if rememberme:
+        cookies["REMEMBERME"] = unquote(rememberme)
+    if xf_user:
+        cookies["xf_user"] = unquote(xf_user)
+    return httpx.AsyncClient(
+        timeout=30,
+        cookies=cookies,
+        headers=_HEADERS,
+        follow_redirects=True,
+    )
 
 
-async def fetch_games_list(
-    client: httpx.AsyncClient,
-    player_id: str,
-    rememberme: str = "",
-    xf_user: str = "",
-) -> list[dict]:
+async def fetch_games_list(client: httpx.AsyncClient, player_id: str) -> list[dict]:
     """Return all Xbox games for the player with exophase metadata."""
     all_games: list[dict] = []
     page = 1
-    headers = _auth_headers(rememberme, xf_user)
     while True:
         resp = await client.get(
             f"{_API}/public/player/{player_id}/games",
             params={"page": page, "environment": "xbox", "sort": 1, "showHidden": 0, "query": ""},
-            headers=headers,
         )
         if resp.status_code != 200:
             log.warning("Exophase games list HTTP %d (page %d)", resp.status_code, page)
@@ -84,7 +81,6 @@ async def fetch_earned_icons(
         resp = await client.get(
             f"{_API}/public/player/{master_playerid}/game/{game_id}/earned",
             params={"last": last},
-            headers=_HEADERS,
         )
         if resp.status_code != 200:
             log.warning("Exophase earned HTTP %d (game %s)", resp.status_code, game_id)

@@ -113,16 +113,15 @@ async def _enrich_exophase_360_icons() -> None:
     if not config.EXOPHASE_PLAYER_ID:
         return
 
-    from app.platforms.exophase import fetch_games_list, fetch_earned_icons, _to_slug
+    from app.platforms.exophase import fetch_games_list, fetch_earned_icons, _to_slug, make_authed_client
 
     pool = await db.get_pool()
-    async with httpx.AsyncClient(timeout=30) as client:
+    async with make_authed_client(
+        rememberme=config.EXOPHASE_REMEMBERME,
+        xf_user=config.EXOPHASE_XF_USER,
+    ) as client:
         try:
-            exo_games = await fetch_games_list(
-                client, config.EXOPHASE_PLAYER_ID,
-                rememberme=config.EXOPHASE_REMEMBERME,
-                xf_user=config.EXOPHASE_XF_USER,
-            )
+            exo_games = await fetch_games_list(client, config.EXOPHASE_PLAYER_ID)
         except Exception:
             log.exception("Exophase games list fetch failed")
             return
@@ -880,19 +879,18 @@ async def status():
 @app.get("/api/exophase-debug")
 async def exophase_debug():
     """Debug Exophase integration: show games list fetch result and sample icon lookup."""
-    from app.platforms.exophase import fetch_games_list, fetch_earned_icons, _to_slug
+    from app.platforms.exophase import fetch_games_list, fetch_earned_icons, _to_slug, make_authed_client
 
     if not config.EXOPHASE_PLAYER_ID:
         return {"error": "EXOPHASE_PLAYER_ID not configured"}
 
     pool = await db.get_pool()
-    async with httpx.AsyncClient(timeout=30) as client:
+    async with make_authed_client(
+        rememberme=config.EXOPHASE_REMEMBERME,
+        xf_user=config.EXOPHASE_XF_USER,
+    ) as client:
         try:
-            exo_games = await fetch_games_list(
-                client, config.EXOPHASE_PLAYER_ID,
-                rememberme=config.EXOPHASE_REMEMBERME,
-                xf_user=config.EXOPHASE_XF_USER,
-            )
+            exo_games = await fetch_games_list(client, config.EXOPHASE_PLAYER_ID)
         except Exception as e:
             return {"error": f"Games list fetch failed: {e}"}
 
