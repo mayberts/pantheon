@@ -18,6 +18,7 @@ _BASE_HEADERS = {
 
 def _to_slug(name: str) -> str:
     s = name.lower()
+    s = s.replace("'", "").replace("'", "")  # strip apostrophes before hyphenating
     s = re.sub(r"[^a-z0-9]+", "-", s)
     return s.strip("-")
 
