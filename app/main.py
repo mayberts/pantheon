@@ -330,7 +330,8 @@ async def summary():
                 CASE WHEN SUM(ug.total_achievements) > 0
                      THEN ROUND(SUM(ug.earned_achievements)::numeric
                           / SUM(ug.total_achievements) * 100, 1)
-                     ELSE 0 END                          AS pct
+                     ELSE 0 END                          AS pct,
+                SUM(ug.playtime_minutes)                 AS total_playtime_minutes
             FROM user_games ug
             JOIN platform_games pg ON pg.id = ug.platform_game_id
             GROUP BY pg.platform
@@ -346,16 +347,20 @@ async def summary():
             """,
         )
     last_synced_map = {r["platform"]: r["last_sync"] for r in last_synced}
+    platform_list = [
+        {**dict(r), "last_sync": last_synced_map.get(r["platform"])}
+        for r in by_platform
+    ]
+    max_playtime = max((p["total_playtime_minutes"] or 0 for p in platform_list), default=0)
+    for p in platform_list:
+        p["most_played"] = (p["total_playtime_minutes"] or 0) == max_playtime and max_playtime > 0
     return {
         "total_games": row["total_games"] or 0,
         "total_earned": int(row["total_earned"] or 0),
         "total_possible": int(row["total_possible"] or 0),
         "overall_pct": float(row["overall_pct"] or 0),
         "perfect_games": int(row["perfect_games"] or 0),
-        "by_platform": [
-            {**dict(r), "last_sync": last_synced_map.get(r["platform"])}
-            for r in by_platform
-        ],
+        "by_platform": platform_list,
     }
 
 

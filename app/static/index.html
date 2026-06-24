@@ -88,7 +88,9 @@
   .platform-card .p-stats { display: flex; gap: 20px; }
   .platform-card .p-stat .val { font-size: 1.1rem; font-weight: 700; }
   .platform-card .p-stat .lbl { font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted2); }
-  .platform-card .p-sync { font-size: 0.65rem; color: var(--muted2); margin-top: 8px; }
+  .platform-card .p-sync { font-size: 0.65rem; color: var(--muted2); margin-top: 4px; }
+  .platform-card .p-playtime { font-size: 0.65rem; color: var(--amber); margin-top: 6px; font-weight: 600; letter-spacing: 0.06em; }
+  .platform-card .p-playtime .p-playtime-tag { color: var(--muted2); font-weight: 500; }
   .stats-callouts { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 16px; }
   .callout-card { background: var(--bg2); border: 1px solid var(--border); padding: 16px 22px; flex: 1; min-width: 200px; }
   .callout-card .c-val { font-size: 1.6rem; font-weight: 700; font-family: 'Share Tech Mono', monospace; color: var(--cyan); line-height: 1.1; }
@@ -846,6 +848,9 @@ async function loadSummary() {
   }
   pg.innerHTML = d.by_platform.map(p => {
     const syncedStr = p.last_sync ? 'Synced ' + fmt(p.last_sync) : 'Never synced';
+    const playtimeStr = p.total_playtime_minutes
+      ? `⏱ ${fmtTime(p.total_playtime_minutes)}${p.most_played ? ' <span class="p-playtime-tag">· Most played</span>' : ''}`
+      : '';
     return `
     <div class="platform-card">
       <div class="p-name">${platLabel(p.platform)}</div>
@@ -855,6 +860,7 @@ async function loadSummary() {
         <div class="p-stat"><div class="val">${p.pct}%</div><div class="lbl">Complete</div></div>
       </div>
       <div class="p-bar"><div class="fill" style="width:${p.pct}%"></div></div>
+      ${playtimeStr ? `<div class="p-playtime">${playtimeStr}</div>` : ''}
       <div class="p-sync">${syncedStr}</div>
     </div>`;
   }).join('');
