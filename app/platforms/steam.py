@@ -78,7 +78,8 @@ class SteamPlatform(Platform):
                 )
 
                 # Skip detail fetch if earned count hasn't changed
-                if earned_cache.get(app_id) == earned:
+                cached = earned_cache.get(app_id)
+                if cached and cached["earned"] == earned:
                     continue
 
                 await asyncio.sleep(delay)

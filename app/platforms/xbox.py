@@ -96,8 +96,9 @@ class XboxPlatform(Platform):
                 if earned == 0 and total > 0:
                     continue
 
-                # Skip if earned count unchanged and achievements already stored
-                if earned_cache.get(title_id) == earned and total > 0:
+                # Skip if earned count unchanged and all achievements already stored
+                cached = earned_cache.get(title_id)
+                if cached and cached["earned"] == earned and cached["stored"] >= total > 0:
                     continue
 
                 await asyncio.sleep(delay)

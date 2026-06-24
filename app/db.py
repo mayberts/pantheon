@@ -121,29 +121,22 @@ async def upsert_achievement(conn, platform_game_id: int, platform_ach_id: str,
     return row["id"]
 
 
-async def get_earned_counts(conn, linked_account_id: int) -> dict[str, int]:
-    """Return {platform_app_id: earned_achievements} only for games that have achievement records stored.
-
-    Excludes games where earned > 0 but no achievement rows exist yet, so the sync
-    will re-fetch detail for those games rather than skipping them permanently.
-    """
+async def get_earned_counts(conn, linked_account_id: int) -> dict[str, dict]:
+    """Return {platform_app_id: {earned, stored}} only for games that have achievement records stored."""
     rows = await _fetch(
         conn,
         """
-        SELECT pg.platform_app_id, ug.earned_achievements
+        SELECT pg.platform_app_id, ug.earned_achievements,
+               COUNT(a.id) AS stored_achievements
         FROM user_games ug
         JOIN platform_games pg ON pg.id = ug.platform_game_id
+        JOIN achievements a ON a.platform_game_id = pg.id
         WHERE ug.linked_account_id = %s
-          AND EXISTS (
-              SELECT 1 FROM user_achievements ua
-              JOIN achievements a ON a.id = ua.achievement_id
-              WHERE ua.linked_account_id = %s
-                AND a.platform_game_id = pg.id
-          )
+        GROUP BY pg.platform_app_id, ug.earned_achievements
         """,
-        linked_account_id, linked_account_id,
+        linked_account_id,
     )
-    return {r["platform_app_id"]: r["earned_achievements"] for r in rows}
+    return {r["platform_app_id"]: {"earned": r["earned_achievements"], "stored": r["stored_achievements"]} for r in rows}
 
 
 async def upsert_igdb_game(conn, igdb_id: int, name: str, cover_url: str) -> None:
