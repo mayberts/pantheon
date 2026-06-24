@@ -126,11 +126,11 @@ _EXOPHASE_TITLE_ALIASES: dict[str, str] = {
 
 
 async def _enrich_exophase_360_icons() -> None:
-    """Fetch Xbox 360 achievement icons from Exophase and fill in NULL icon_urls."""
+    """Fetch Xbox 360 achievement icons from Exophase (earned + locked via page scrape)."""
     if not config.EXOPHASE_PLAYER_ID:
         return
 
-    from app.platforms.exophase import fetch_games_list, fetch_earned_icons, _to_slug
+    from app.platforms.exophase import fetch_games_list, fetch_game_page_icons, _to_slug
 
     access_token = config.EXOPHASE_ACCESS_TOKEN
     if not access_token:
@@ -145,8 +145,7 @@ async def _enrich_exophase_360_icons() -> None:
             log.exception("Exophase games list fetch failed")
             return
 
-        # Build title→exo_game map for ALL games (not just 360-tagged);
-        # some 360 games are listed without the 360 tag on Exophase
+        # Build title→exo_game map for ALL games
         exo_by_title: dict[str, dict] = {}
         for g in exo_games:
             exo_by_title[_to_slug(g["title"])] = g
@@ -154,7 +153,7 @@ async def _enrich_exophase_360_icons() -> None:
         if not exo_by_title:
             return
 
-        # Find Xbox achievements with missing icons
+        # Find ALL Xbox achievements without icons (earned and locked)
         async with pool.connection() as conn:
             rows = await _fetch(
                 conn,
@@ -185,12 +184,14 @@ async def _enrich_exophase_360_icons() -> None:
             if not exo_game:
                 continue
 
+            page_slug = exo_game.get("exo_slug") or ""
+            if not page_slug:
+                continue
+
             try:
-                icons = await fetch_earned_icons(
-                    exo_game["master_playerid"], exo_game["master_id"]
-                )
+                icons = await fetch_game_page_icons(page_slug)
             except Exception:
-                log.exception("Exophase earned fetch failed for %s", game_name)
+                log.exception("Exophase page scrape failed for %s", game_name)
                 continue
 
             if not icons:

@@ -14,11 +14,19 @@ _BASE_HEADERS = {
     "x-requested-with": "XMLHttpRequest",
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
 }
+_PAGE_HEADERS = {
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "User-Agent": _BASE_HEADERS["User-Agent"],
+}
+
+_IMG_TAG = re.compile(r'<img[^>]+class="[^"]*award-image[^"]*"[^>]*>', re.DOTALL)
+_TIPPY_NAME = re.compile(r'data-tippy-content=".*?<strong>(.*?)</strong>', re.DOTALL)
+_SRC = re.compile(r'\bsrc="(https://m\.exophase\.com/[^"?]+)')
 
 
 def _to_slug(name: str) -> str:
     s = name.lower()
-    s = s.replace("'", "").replace("'", "")  # strip apostrophes before hyphenating
+    s = s.replace("'", "").replace("’", "")  # strip apostrophes before hyphenating
     s = re.sub(r"[^a-z0-9]+", "-", s)
     return s.strip("-")
 
@@ -49,16 +57,42 @@ async def fetch_games_list(
             meta = g.get("meta") or {}
             platforms = meta.get("platforms") or []
             is_360 = any(p.get("slug") == "xbox-360" for p in platforms)
+            title = meta.get("title", "")
+            # Derive the game page slug: {title-slug}-{platform-slug}
+            platform_tag = "xbox-360" if is_360 else "xbox-one"
+            exo_slug = f"{_to_slug(title)}-{platform_tag}"
             all_games.append({
                 "master_id": g["master_id"],
                 "master_playerid": g["master_playerid"],
-                "title": meta.get("title", ""),
+                "title": title,
                 "is_360": is_360,
+                "exo_slug": exo_slug,
             })
         if len(batch) < 25:
             break
         page += 1
     return all_games
+
+
+async def fetch_game_page_icons(exo_slug: str) -> dict[str, str]:
+    """Scrape the Exophase game achievements page for all icons (earned + locked)."""
+    url = f"https://www.exophase.com/game/{exo_slug}/achievements/"
+    async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+        resp = await client.get(url, headers=_PAGE_HEADERS)
+    if resp.status_code != 200:
+        log.warning("Exophase game page HTTP %d for %s", resp.status_code, exo_slug)
+        return {}
+
+    icons: dict[str, str] = {}
+    for m in _IMG_TAG.finditer(resp.text):
+        tag = m.group(0)
+        name_m = _TIPPY_NAME.search(tag)
+        src_m = _SRC.search(tag)
+        if name_m and src_m:
+            icons[_to_slug(name_m.group(1))] = src_m.group(1)
+
+    log.info("Exophase page scrape %s: %d icons", exo_slug, len(icons))
+    return icons
 
 
 async def fetch_earned_icons(
