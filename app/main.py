@@ -108,6 +108,23 @@ async def _enrich_hltb() -> None:
 
 
 
+# Manual slug aliases for games with abbreviated/different names in our DB vs Exophase
+_EXOPHASE_TITLE_ALIASES: dict[str, str] = {
+    "pgr-4": "project-gotham-racing-4",
+    "pgr-3": "project-gotham-racing-3",
+    "gta-iv": "grand-theft-auto-iv",
+    "gta-iv-pc": "grand-theft-auto-iv",
+    "modern-warfare": "call-of-duty-4-modern-warfare",
+    "brothers-in-arms-hh": "brothers-in-arms-hell-s-highway",
+    "nfs-undercover": "need-for-speed-undercover",
+    "nfs-prostreet": "need-for-speed-prostreet",
+    "guitar-hero-iii": "guitar-hero-iii-legends-of-rock",
+    "medal-of-honor-airborne": "moh-airborne",
+    "alone-in-the-dark": "alone-in-the-dark-2008",
+    "kane-and-lynch-deadmen": "kane-lynch-dead-men",
+}
+
+
 async def _enrich_exophase_360_icons() -> None:
     """Fetch Xbox 360 achievement icons from Exophase and fill in NULL icon_urls."""
     if not config.EXOPHASE_PLAYER_ID:
@@ -128,13 +145,13 @@ async def _enrich_exophase_360_icons() -> None:
             log.exception("Exophase games list fetch failed")
             return
 
-        # Build title→exo_game map for 360 games only
-        exo_360_by_title: dict[str, dict] = {}
+        # Build title→exo_game map for ALL games (not just 360-tagged);
+        # some 360 games are listed without the 360 tag on Exophase
+        exo_by_title: dict[str, dict] = {}
         for g in exo_games:
-            if g["is_360"]:
-                exo_360_by_title[_to_slug(g["title"])] = g
+            exo_by_title[_to_slug(g["title"])] = g
 
-        if not exo_360_by_title:
+        if not exo_by_title:
             return
 
         # Find Xbox achievements with missing icons
@@ -162,7 +179,9 @@ async def _enrich_exophase_360_icons() -> None:
 
         updated = 0
         for game_name, achs in by_game.items():
-            exo_game = exo_360_by_title.get(_to_slug(game_name))
+            db_slug = _to_slug(game_name)
+            exo_slug = _EXOPHASE_TITLE_ALIASES.get(db_slug, db_slug)
+            exo_game = exo_by_title.get(exo_slug)
             if not exo_game:
                 continue
 
@@ -918,13 +937,16 @@ async def exophase_debug():
 
     match_results = []
     for row in db_rows:
-        slug = _to_slug(row["name"])
+        db_slug = _to_slug(row["name"])
+        exo_slug = _EXOPHASE_TITLE_ALIASES.get(db_slug, db_slug)
+        aliased = exo_slug != db_slug
         match_results.append({
             "db_game": row["name"],
-            "slug": slug,
+            "slug": db_slug,
+            "exo_slug": exo_slug if aliased else None,
             "missing_icons": row["missing_icons"],
-            "exophase_match": all_games_slugs.get(slug),
-            "is_360_match": xbox_360_slugs.get(slug),
+            "exophase_match": all_games_slugs.get(exo_slug),
+            "is_360_match": xbox_360_slugs.get(exo_slug),
         })
 
     return {
