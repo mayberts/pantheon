@@ -785,6 +785,7 @@ async def exophase_import_icons(payload: dict):
         return {"error": "game_name and icons required"}
 
     pool = await db.get_pool()
+    matched = None
     async with pool.connection() as conn:
         rows = await _fetch(
             conn,
@@ -812,8 +813,32 @@ async def exophase_import_icons(payload: dict):
             )
 
     updated = 0
+    created = 0
     slug_icons = {_to_slug(k): v for k, v in icons.items()}
+
+    # Determine platform_game_id for potential inserts
     async with pool.connection() as conn:
+        pg_row = await _fetchrow(
+            conn,
+            "SELECT id FROM platform_games WHERE platform = 'xbox' AND name = %s",
+            game_name,
+        )
+        if not pg_row and matched:
+            pg_id = matched["id"]
+        elif pg_row:
+            pg_id = pg_row["id"]
+        else:
+            pg_id = None
+
+        # Get linked_account_id for xbox (to create user_achievement rows)
+        la_row = await _fetchrow(
+            conn,
+            "SELECT id FROM linked_accounts WHERE platform = 'xbox' LIMIT 1",
+        )
+        linked_id = la_row["id"] if la_row else None
+
+    async with pool.connection() as conn:
+        existing_slugs = {_to_slug(ach["name"]) for ach in rows}
         for ach in rows:
             icon_url = slug_icons.get(_to_slug(ach["name"]))
             if icon_url:
@@ -823,7 +848,19 @@ async def exophase_import_icons(payload: dict):
                 )
                 updated += 1
 
-    return {"game_name": game_name, "achievements_found": len(rows), "icons_updated": updated}
+        # Create achievements that don't exist in DB yet
+        if pg_id and linked_id:
+            for name, icon_url in icons.items():
+                slug = _to_slug(name)
+                if slug not in existing_slugs:
+                    synth_id = f"exo-{slug}"
+                    ach_id = await db.upsert_achievement(
+                        conn, pg_id, synth_id, name, None, icon_url, None, None
+                    )
+                    await db.upsert_user_achievement(conn, linked_id, ach_id, False, None)
+                    created += 1
+
+    return {"game_name": game_name, "achievements_found": len(rows), "icons_updated": updated, "achievements_created": created}
 
 
 @app.post("/api/hltb-refresh", status_code=202)
