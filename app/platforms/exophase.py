@@ -21,15 +21,33 @@ def _to_slug(name: str) -> str:
     return s.strip("-")
 
 
-async def fetch_games_list(client: httpx.AsyncClient, player_id: str) -> list[dict]:
+def _auth_headers(rememberme: str = "", xf_user: str = "") -> dict:
+    headers = dict(_HEADERS)
+    if rememberme or xf_user:
+        parts = []
+        if rememberme:
+            parts.append(f"REMEMBERME={rememberme}")
+        if xf_user:
+            parts.append(f"xf_user={xf_user}")
+        headers["Cookie"] = "; ".join(parts)
+    return headers
+
+
+async def fetch_games_list(
+    client: httpx.AsyncClient,
+    player_id: str,
+    rememberme: str = "",
+    xf_user: str = "",
+) -> list[dict]:
     """Return all Xbox games for the player with exophase metadata."""
     all_games: list[dict] = []
     page = 1
+    headers = _auth_headers(rememberme, xf_user)
     while True:
         resp = await client.get(
             f"{_API}/public/player/{player_id}/games",
             params={"page": page, "environment": "xbox", "sort": 1, "showHidden": 0, "query": ""},
-            headers=_HEADERS,
+            headers=headers,
         )
         if resp.status_code != 200:
             log.warning("Exophase games list HTTP %d (page %d)", resp.status_code, page)
