@@ -130,7 +130,7 @@ async def _enrich_exophase_360_icons() -> None:
     if not config.EXOPHASE_PLAYER_ID:
         return
 
-    from app.platforms.exophase import fetch_games_list, fetch_game_page_icons, _to_slug
+    from app.platforms.exophase import fetch_games_list, fetch_earned_icons, _to_slug
 
     access_token = config.EXOPHASE_ACCESS_TOKEN
     if not access_token:
@@ -184,26 +184,13 @@ async def _enrich_exophase_360_icons() -> None:
             if not exo_game:
                 continue
 
-            page_slug = exo_game.get("exo_slug") or ""
-            if not page_slug:
-                continue
-
             try:
-                icons = await fetch_game_page_icons(page_slug)
+                icons = await fetch_earned_icons(
+                    exo_game["master_playerid"], exo_game["master_id"]
+                )
             except Exception:
-                log.exception("Exophase page scrape failed for %s", game_name)
-                icons = {}
-
-            # Fall back to earned API if page scrape got nothing
-            if not icons:
-                log.info("Exophase page scrape empty for %s, falling back to earned API", game_name)
-                try:
-                    from app.platforms.exophase import fetch_earned_icons
-                    icons = await fetch_earned_icons(
-                        exo_game["master_playerid"], exo_game["master_id"]
-                    )
-                except Exception:
-                    log.exception("Exophase earned fallback failed for %s", game_name)
+                log.exception("Exophase earned fetch failed for %s", game_name)
+                continue
 
             if not icons:
                 continue
