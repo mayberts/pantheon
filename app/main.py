@@ -108,6 +108,86 @@ async def _enrich_hltb() -> None:
 
 
 
+async def _enrich_exophase_360_icons() -> None:
+    """Fetch Xbox 360 achievement icons from Exophase and fill in NULL icon_urls."""
+    if not config.EXOPHASE_PLAYER_ID:
+        return
+
+    from app.platforms.exophase import fetch_games_list, fetch_earned_icons, _to_slug
+
+    pool = await db.get_pool()
+    async with httpx.AsyncClient(timeout=30) as client:
+        try:
+            exo_games = await fetch_games_list(client, config.EXOPHASE_PLAYER_ID)
+        except Exception:
+            log.exception("Exophase games list fetch failed")
+            return
+
+        # Build title→exo_game map for 360 games only
+        exo_360_by_title: dict[str, dict] = {}
+        for g in exo_games:
+            if g["is_360"]:
+                exo_360_by_title[_to_slug(g["title"])] = g
+
+        if not exo_360_by_title:
+            return
+
+        # Find Xbox achievements with missing icons
+        async with pool.connection() as conn:
+            rows = await _fetch(
+                conn,
+                """
+                SELECT a.id, a.name, pg.name AS game_name
+                FROM achievements a
+                JOIN platform_games pg ON pg.id = a.platform_game_id
+                WHERE pg.platform = 'xbox' AND a.icon_url IS NULL
+                """,
+            )
+
+        if not rows:
+            log.info("Exophase enrichment: no Xbox achievements missing icons")
+            return
+
+        log.info("Exophase enrichment: %d Xbox achievements missing icons", len(rows))
+
+        # Group achievements by game name
+        by_game: dict[str, list[dict]] = {}
+        for row in rows:
+            by_game.setdefault(row["game_name"], []).append(row)
+
+        updated = 0
+        for game_name, achs in by_game.items():
+            exo_game = exo_360_by_title.get(_to_slug(game_name))
+            if not exo_game:
+                continue
+
+            try:
+                icons = await fetch_earned_icons(
+                    client, exo_game["master_playerid"], exo_game["master_id"]
+                )
+            except Exception:
+                log.exception("Exophase earned fetch failed for %s", game_name)
+                continue
+
+            if not icons:
+                continue
+
+            await asyncio.sleep(config.REQUEST_DELAY_SECONDS)
+
+            async with pool.connection() as conn:
+                for ach in achs:
+                    slug = _to_slug(ach["name"])
+                    icon_url = icons.get(slug)
+                    if icon_url:
+                        await conn.execute(
+                            "UPDATE achievements SET icon_url = %s WHERE id = %s",
+                            (icon_url, ach["id"]),
+                        )
+                        updated += 1
+
+        log.info("Exophase enrichment: updated %d achievement icons", updated)
+
+
 async def run_sync() -> None:
     if _sync_lock.locked():
         log.info("Sync already running, skipping")
@@ -162,6 +242,7 @@ async def run_sync() -> None:
         _sync_progress["running"] = False
         asyncio.create_task(_enrich_hltb())
         asyncio.create_task(_enrich_igdb())
+        asyncio.create_task(_enrich_exophase_360_icons())
 
 
 @asynccontextmanager
