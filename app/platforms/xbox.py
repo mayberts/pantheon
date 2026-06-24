@@ -104,31 +104,7 @@ class XboxPlatform(Platform):
                 await asyncio.sleep(delay)
 
                 if is_360:
-                    # Fetch ALL achievements from title endpoint (includes locked)
-                    all_achievements = []
-                    continuation = None
-                    while True:
-                        params = {"maxItems": 1000}
-                        if continuation:
-                            params["continuationToken"] = continuation
-                        title_resp = await client.get(
-                            f"{_ACH}/titles/{title_id}/achievements",
-                            params=params,
-                            headers=_xbl_headers(tokens, contract="1"),
-                        )
-                        if title_resp.status_code == 429:
-                            log.warning("Xbox Live rate limit hit")
-                            raise RuntimeError("Xbox Live rate limit — try again later")
-                        if title_resp.status_code != 200:
-                            log.warning("360 title achievements fetch failed for %s: HTTP %d", name, title_resp.status_code)
-                            break
-                        data = title_resp.json()
-                        all_achievements.extend(data.get("achievements") or [])
-                        continuation = (data.get("pagingInfo") or {}).get("continuationToken")
-                        if not continuation:
-                            break
-
-                    # Fetch earned achievements for unlock timestamps
+                    # Fetch earned achievements (v1 API only returns earned, not locked)
                     earned_achievements = []
                     continuation = None
                     while True:
@@ -151,13 +127,11 @@ class XboxPlatform(Platform):
                         if not continuation:
                             break
 
-                    # Build earned map: id -> timeUnlocked
                     earned_map = {
                         str(a.get("id")): a.get("timeUnlocked")
                         for a in earned_achievements
                     }
-                    # Use all achievements if title endpoint worked, else fall back to earned only
-                    achievements = all_achievements if all_achievements else earned_achievements
+                    achievements = earned_achievements
                 else:
                     ach_resp = await client.get(
                         f"{_ACH}/users/xuid({xuid})/achievements",
