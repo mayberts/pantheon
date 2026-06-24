@@ -1267,7 +1267,7 @@ function esc(s) {
 // ── Back to top ──────────────────────────────────────────────────────────────
 (function() {
   const btn = document.getElementById('backToTop');
-  window.addEventListener('scroll', () => {
+  if (btn) window.addEventListener('scroll', () => {
     btn.classList.toggle('visible', window.scrollY > 400);
   }, { passive: true });
 })();
