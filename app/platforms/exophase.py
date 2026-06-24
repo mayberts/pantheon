@@ -1,6 +1,5 @@
 import re
 import logging
-from urllib.parse import unquote
 
 import httpx
 
@@ -21,35 +20,6 @@ def _to_slug(name: str) -> str:
     s = name.lower()
     s = re.sub(r"[^a-z0-9]+", "-", s)
     return s.strip("-")
-
-
-async def get_access_token(rememberme: str, xf_user: str = "") -> str | None:
-    """Exchange REMEMBERME cookie for a fresh ACCESS_TOKEN by hitting /account/me."""
-    cookie_parts = []
-    if rememberme:
-        cookie_parts.append(f"REMEMBERME={unquote(rememberme)}")
-    if xf_user:
-        cookie_parts.append(f"xf_user={unquote(xf_user)}")
-    if not cookie_parts:
-        return None
-
-    headers = dict(_BASE_HEADERS)
-    headers["Cookie"] = "; ".join(cookie_parts)
-
-    async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-        try:
-            resp = await client.get(f"{_API}/account/me", headers=headers)
-            log.info("Exophase /account/me status: %d", resp.status_code)
-            # ACCESS_TOKEN is set as a response cookie
-            token = resp.cookies.get("ACCESS_TOKEN")
-            if token:
-                log.info("Exophase: got fresh ACCESS_TOKEN")
-                return token
-            # Also check if it was in the request (already valid)
-            log.warning("Exophase: no ACCESS_TOKEN in response cookies; resp=%s", resp.text[:200])
-        except Exception:
-            log.exception("Exophase /account/me failed")
-    return None
 
 
 async def fetch_games_list(
