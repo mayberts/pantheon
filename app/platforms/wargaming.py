@@ -149,8 +149,9 @@ class WargamingPlatform(Platform):
                 if cached and cached["earned"] == earned and cached["stored"] >= total > 0:
                     continue
 
-                # Upsert achievements
-                for ach_name, enc in encyclopedia.items():
+                # Upsert achievements — fall back to raw_achievements when encyclopedia is empty
+                ach_source = encyclopedia if encyclopedia else {k: {} for k in raw_achievements}
+                for ach_name, enc in ach_source.items():
                     self._inc("achievements_synced")
                     icon_url = (enc.get("image") or enc.get("image_big") or "").replace("http://", "https://") or None
                     ach_id = await db.upsert_achievement(
