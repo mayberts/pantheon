@@ -84,8 +84,12 @@ class WargamingPlatform(Platform):
                 )
                 encyclopedia: dict[str, dict] = {}
                 if enc_resp.status_code == 200:
-                    raw_enc = enc_resp.json().get("data") or {}
+                    enc_body = enc_resp.json()
+                    raw_enc = enc_body.get("data") or {}
                     if game_key == "wows":
+                        log.info("Wargaming wows encyclopedia raw: status=%s data_type=%s data_len=%s first_keys=%s",
+                                 enc_body.get("status"), type(raw_enc).__name__, len(raw_enc) if raw_enc else 0,
+                                 list(raw_enc.keys())[:3] if isinstance(raw_enc, dict) else str(raw_enc)[:100])
                         # WoWS encyclopedia uses numeric IDs as keys; re-key by achievement name
                         if isinstance(raw_enc, dict):
                             encyclopedia = {
@@ -125,6 +129,12 @@ class WargamingPlatform(Platform):
                 ach_data = account_data or {}
                 earned_map: dict[str, int] = {}
                 if game_key == "wows":
+                    log.info("Wargaming wows ach_data top-level keys=%s", list(ach_data.keys()))
+                    for cat_key, cat_val in ach_data.items():
+                        log.info("Wargaming wows category '%s': type=%s len=%s sample=%s",
+                                 cat_key, type(cat_val).__name__,
+                                 len(cat_val) if hasattr(cat_val, '__len__') else '?',
+                                 str(cat_val)[:120])
                     # WoWS may return a flat dict {name: count} or nested {category: {name: count}}
                     # Detect by checking if the first value is a dict (nested) or int (flat)
                     first_val = next(iter(ach_data.values()), None)
