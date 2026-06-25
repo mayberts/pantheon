@@ -87,20 +87,21 @@ class WargamingPlatform(Platform):
                     enc_body = enc_resp.json()
                     raw_enc = enc_body.get("data") or {}
                     if game_key == "wows":
-                        log.info("Wargaming wows encyclopedia raw: status=%s data_type=%s data_len=%s first_keys=%s",
-                                 enc_body.get("status"), type(raw_enc).__name__, len(raw_enc) if raw_enc else 0,
-                                 list(raw_enc.keys())[:3] if isinstance(raw_enc, dict) else str(raw_enc)[:100])
-                        # WoWS encyclopedia uses numeric IDs as keys; re-key by achievement name
+                        # WoWS encyclopedia is nested: {"battle": {"PCH161_...": {name, image, ...}, ...}}
+                        # Flatten one level then re-key by achievement name
+                        flat_enc: dict = {}
                         if isinstance(raw_enc, dict):
-                            encyclopedia = {
-                                v["name"]: v for v in raw_enc.values()
-                                if isinstance(v, dict) and v.get("name")
-                            }
+                            for cat_val in raw_enc.values():
+                                if isinstance(cat_val, dict):
+                                    flat_enc.update(cat_val)
                         elif isinstance(raw_enc, list):
-                            encyclopedia = {
-                                v["name"]: v for v in raw_enc
-                                if isinstance(v, dict) and v.get("name")
-                            }
+                            for item in raw_enc:
+                                if isinstance(item, dict) and item.get("name"):
+                                    flat_enc[item["name"]] = item
+                        encyclopedia = {
+                            v["name"]: v for v in flat_enc.values()
+                            if isinstance(v, dict) and v.get("name")
+                        }
                     else:
                         encyclopedia = raw_enc
                     log.info("Wargaming %s encyclopedia: %d achievements", game_key, len(encyclopedia))
@@ -129,20 +130,17 @@ class WargamingPlatform(Platform):
                 ach_data = account_data or {}
                 earned_map: dict[str, int] = {}
                 if game_key == "wows":
-                    log.info("Wargaming wows ach_data top-level keys=%s", list(ach_data.keys()))
-                    for cat_key, cat_val in ach_data.items():
-                        log.info("Wargaming wows category '%s': type=%s len=%s sample=%s",
-                                 cat_key, type(cat_val).__name__,
-                                 len(cat_val) if hasattr(cat_val, '__len__') else '?',
-                                 str(cat_val)[:120])
-                    # WoWS may return a flat dict {name: count} or nested {category: {name: count}}
-                    # Detect by checking if the first value is a dict (nested) or int (flat)
+                    # WoWS returns {"battle": {name: count}, "progress": {name: count}}
+                    # "battle" has the real earned counts; "progress" has the same keys with 0.
+                    # Merge by taking the MAX value per key so progress never overwrites earned.
                     first_val = next(iter(ach_data.values()), None)
                     if isinstance(first_val, dict):
                         raw_achievements: dict = {}
                         for category_val in ach_data.values():
                             if isinstance(category_val, dict):
-                                raw_achievements.update(category_val)
+                                for k, v in category_val.items():
+                                    cur = raw_achievements.get(k, 0)
+                                    raw_achievements[k] = max(v, cur) if isinstance(v, int) else (v or cur)
                     else:
                         raw_achievements = ach_data
                 else:
