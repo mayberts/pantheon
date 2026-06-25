@@ -132,6 +132,8 @@ class WargamingPlatform(Platform):
                         log.info("Wargaming wows account achievements: flat, %d entries", len(raw_achievements))
                 else:
                     raw_achievements = ach_data.get("achievements") or {}
+                    log.info("Wargaming wot account achievements: keys=%s raw_len=%d ach_data_keys=%s",
+                             list(raw_achievements.keys())[:5], len(raw_achievements), list(ach_data.keys())[:5])
                 for k, v in raw_achievements.items():
                     if isinstance(v, dict):
                         earned_map[k] = v.get("count", 1) or 1
