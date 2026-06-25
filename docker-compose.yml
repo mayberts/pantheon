@@ -29,6 +29,7 @@ services:
       WARGAMING_APP_ID: ${WARGAMING_APP_ID}
       WARGAMING_NICKNAME: ${WARGAMING_NICKNAME}
       WARGAMING_REGION: ${WARGAMING_REGION}
+      GW2_API_KEY: ${GW2_API_KEY}
     ports:
       - "8744:8000"
     depends_on:
