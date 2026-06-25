@@ -178,6 +178,20 @@ async def update_hltb(conn, platform_game_id: int, main: float | None, extra: fl
     )
 
 
+async def remove_user_game(conn, linked_account_id: int, platform: str, platform_app_id: str) -> None:
+    await conn.execute(
+        """
+        DELETE FROM user_games ug
+        USING platform_games pg
+        WHERE ug.platform_game_id = pg.id
+          AND ug.linked_account_id = %s
+          AND pg.platform = %s
+          AND pg.platform_app_id = %s
+        """,
+        (linked_account_id, platform, platform_app_id),
+    )
+
+
 async def upsert_user_achievement(conn, linked_account_id: int, achievement_id: int,
                                    unlocked: bool, unlocked_at=None) -> None:
     await conn.execute(
