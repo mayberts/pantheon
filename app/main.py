@@ -1020,6 +1020,46 @@ async def trigger_sync():
     return {"status": "started"}
 
 
+@app.post("/api/ubisoft-setup")
+async def ubisoft_setup(payload: dict):
+    """
+    Start Ubisoft auth with email + password.
+    Body: {"email": "...", "password": "..."}
+    Returns either {"status": "done"} or {"status": "2fa_required", "two_factor_ticket": ..., "method": "TOTP"|"EMAIL"}
+    """
+    from app.ubisoft_auth import start_auth
+    email = payload.get("email", "").strip()
+    password = payload.get("password", "")
+    if not email or not password:
+        raise HTTPException(status_code=400, detail="email and password required")
+    try:
+        result = await start_auth(email, password)
+    except RuntimeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if result["status"] == "done":
+        result["message"] = "Ubisoft authenticated successfully. Run a sync to import your games."
+    return result
+
+
+@app.post("/api/ubisoft-setup/verify")
+async def ubisoft_setup_verify(payload: dict):
+    """
+    Complete Ubisoft 2FA.
+    Body: {"ticket": "<two_factor_ticket>", "code": "<2fa_code>"}
+    """
+    from app.ubisoft_auth import complete_2fa
+    ticket = payload.get("ticket", "").strip()
+    code = payload.get("code", "").strip()
+    if not ticket or not code:
+        raise HTTPException(status_code=400, detail="ticket and code required")
+    try:
+        result = await complete_2fa(ticket, code)
+    except RuntimeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    result["message"] = "Ubisoft authenticated successfully. Run a sync to import your games."
+    return result
+
+
 @app.get("/api/xbox-setup")
 async def xbox_setup():
     """Start device code flow. Returns a user_code to enter at microsoft.com/devicelogin."""

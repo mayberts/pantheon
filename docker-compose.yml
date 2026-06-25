@@ -30,6 +30,7 @@ services:
       WARGAMING_NICKNAME: ${WARGAMING_NICKNAME}
       WARGAMING_REGION: ${WARGAMING_REGION}
       GW2_API_KEY: ${GW2_API_KEY}
+      UBISOFT_EMAIL: ${UBISOFT_EMAIL}
     ports:
       - "8744:8000"
     depends_on:

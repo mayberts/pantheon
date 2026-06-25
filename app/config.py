@@ -32,6 +32,8 @@ WARGAMING_REGION = os.getenv("WARGAMING_REGION", "eu")
 
 GW2_API_KEY = os.getenv("GW2_API_KEY", "")
 
+UBISOFT_EMAIL = os.getenv("UBISOFT_EMAIL", "")
+
 EXOPHASE_PLAYER_ID = os.getenv("EXOPHASE_PLAYER_ID", "")
 EXOPHASE_REMEMBERME = os.getenv("EXOPHASE_REMEMBERME", "")
 EXOPHASE_XF_USER = os.getenv("EXOPHASE_XF_USER", "")
@@ -51,4 +53,7 @@ def enabled_accounts() -> list[dict]:
         accounts.append({"platform": "wargaming", "external_id": WARGAMING_NICKNAME})
     if GW2_API_KEY:
         accounts.append({"platform": "guildwars2", "external_id": "gw2"})
+    from app.ubisoft_auth import load_remember_me
+    if load_remember_me():
+        accounts.append({"platform": "ubisoft", "external_id": "ubisoft"})
     return accounts

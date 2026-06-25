@@ -3,6 +3,7 @@ from app.platforms.retroachievements import RetroAchievementsPlatform
 from app.platforms.xbox import XboxPlatform
 from app.platforms.wargaming import WargamingPlatform
 from app.platforms.guildwars2 import GuildWars2Platform
+from app.platforms.ubisoft import UbisoftPlatform
 
 PLATFORMS = {
     "steam": SteamPlatform,
@@ -10,4 +11,5 @@ PLATFORMS = {
     "xbox": XboxPlatform,
     "wargaming": WargamingPlatform,
     "guildwars2": GuildWars2Platform,
+    "ubisoft": UbisoftPlatform,
 }
