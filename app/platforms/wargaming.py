@@ -119,7 +119,8 @@ class WargamingPlatform(Platform):
                 raw_data = ach_json.get("data") or {}
                 account_data = raw_data.get(str(account_id))
                 if account_data is None:
-                    log.info("Wargaming %s: account %s has no data (not played or private) — skipping", game_key, account_id)
+                    log.info("Wargaming %s: account %s has no data (not played or private) — removing from library", game_key, account_id)
+                    await db.remove_user_game(conn, linked_id, "wargaming", game_key)
                     continue
                 ach_data = account_data or {}
                 earned_map: dict[str, int] = {}
