@@ -18,7 +18,8 @@ def _headers() -> dict | None:
 
 
 async def search_grid(name: str) -> str | None:
-    """Return a 460x215 landscape grid URL for the best matching game, or None."""
+    """Return a landscape grid URL for the best matching game, or None.
+    Tries 460x215 first, then 920x430 as fallback."""
     headers = _headers()
     if not headers:
         return None
@@ -37,15 +38,16 @@ async def search_grid(name: str) -> str | None:
             return None
         game_id = data["data"][0]["id"]
 
-        # Fetch landscape grids (460x215)
-        resp = await client.get(
-            f"{_BASE}/grids/game/{game_id}",
-            headers=headers,
-            params={"dimensions": "460x215", "limit": 5},
-        )
-        if resp.status_code != 200:
-            return None
-        grid_data = resp.json()
-        if not grid_data.get("success") or not grid_data.get("data"):
-            return None
-        return grid_data["data"][0]["url"]
+        # Try 460x215 first, fall back to 920x430
+        for dimensions in ("460x215", "920x430"):
+            resp = await client.get(
+                f"{_BASE}/grids/game/{game_id}",
+                headers=headers,
+                params={"dimensions": dimensions, "limit": 5},
+            )
+            if resp.status_code != 200:
+                continue
+            grid_data = resp.json()
+            if grid_data.get("success") and grid_data.get("data"):
+                return grid_data["data"][0]["url"]
+        return None
