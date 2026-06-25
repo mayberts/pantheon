@@ -59,19 +59,22 @@ class WargamingPlatform(Platform):
                 hosts = game_cfg["hosts"]
                 base = hosts.get(region, hosts["eu"])
 
-                # Find account ID
-                resp = await client.get(
-                    f"{base}{game_cfg['account_search']}",
-                    params={"application_id": app_id, "search": nickname, "type": "exact"},
-                )
-                if resp.status_code != 200:
-                    log.warning("Wargaming account search failed for %s/%s", game_key, nickname)
-                    continue
-                results = resp.json().get("data") or []
-                if not results:
-                    log.info("No Wargaming account found for %s in %s", nickname, game_key)
-                    continue
-                account_id = results[0]["account_id"]
+                # Find account ID — if nickname is already numeric, use it directly
+                if nickname.isdigit():
+                    account_id = int(nickname)
+                else:
+                    resp = await client.get(
+                        f"{base}{game_cfg['account_search']}",
+                        params={"application_id": app_id, "search": nickname, "type": "exact"},
+                    )
+                    if resp.status_code != 200:
+                        log.warning("Wargaming account search failed for %s/%s", game_key, nickname)
+                        continue
+                    results = resp.json().get("data") or []
+                    if not results:
+                        log.info("No Wargaming account found for %s in %s", nickname, game_key)
+                        continue
+                    account_id = results[0]["account_id"]
 
                 # Fetch achievement encyclopedia (all possible achievements)
                 await asyncio.sleep(delay)
