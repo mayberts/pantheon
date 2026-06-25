@@ -118,11 +118,18 @@ class WargamingPlatform(Platform):
                 ach_data = (ach_resp.json().get("data") or {}).get(str(account_id)) or {}
                 earned_map: dict[str, int] = {}
                 if game_key == "wows":
-                    # WoWS nests achievements under category keys ("battle", "progress", etc.)
-                    raw_achievements: dict = {}
-                    for category_val in ach_data.values():
-                        if isinstance(category_val, dict):
-                            raw_achievements.update(category_val)
+                    # WoWS may return a flat dict {name: count} or nested {category: {name: count}}
+                    # Detect by checking if the first value is a dict (nested) or int (flat)
+                    first_val = next(iter(ach_data.values()), None)
+                    if isinstance(first_val, dict):
+                        raw_achievements: dict = {}
+                        for category_val in ach_data.values():
+                            if isinstance(category_val, dict):
+                                raw_achievements.update(category_val)
+                        log.info("Wargaming wows account achievements: nested, %d categories, %d total", len(ach_data), len(raw_achievements))
+                    else:
+                        raw_achievements = ach_data
+                        log.info("Wargaming wows account achievements: flat, %d entries", len(raw_achievements))
                 else:
                     raw_achievements = ach_data.get("achievements") or {}
                 for k, v in raw_achievements.items():
