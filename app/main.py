@@ -70,6 +70,41 @@ async def _enrich_igdb(retry_failed: bool = False) -> None:
     await asyncio.gather(*[_lookup(row) for row in rows])
 
 
+async def _enrich_sgdb(retry_failed: bool = False) -> None:
+    """Fetch SteamGridDB landscape cover art for games that don't have it yet."""
+    if not config.SGDB_API_KEY:
+        return
+    from app.sgdb import search_grid
+    pool = await db.get_pool()
+    async with pool.connection() as conn:
+        if retry_failed:
+            rows = await _fetch(
+                conn,
+                "SELECT id, name FROM platform_games WHERE (sgdb_cover_url IS NULL OR sgdb_cover_url = '') AND total_achievements > 0",
+            )
+        else:
+            rows = await _fetch(
+                conn,
+                "SELECT id, name FROM platform_games WHERE sgdb_cover_url IS NULL AND total_achievements > 0",
+            )
+    log.info("SGDB enrichment: %d games to look up", len(rows))
+    sem = asyncio.Semaphore(3)
+
+    async def _lookup(row):
+        async with sem:
+            try:
+                url = await search_grid(row["name"])
+                async with pool.connection() as conn:
+                    await db.set_sgdb_cover(conn, row["id"], url or "")
+                if url:
+                    log.info("SGDB cover found for '%s'", row["name"])
+                await asyncio.sleep(config.REQUEST_DELAY_SECONDS)
+            except Exception:
+                log.exception("SGDB lookup failed for %s", row["name"])
+
+    await asyncio.gather(*[_lookup(row) for row in rows])
+
+
 async def _enrich_hltb() -> None:
     """Fetch How Long To Beat times for games that don't have them yet (parallel with semaphore)."""
     try:
@@ -271,6 +306,7 @@ async def run_sync() -> None:
         _sync_progress["running"] = False
         asyncio.create_task(_enrich_hltb())
         asyncio.create_task(_enrich_igdb())
+        asyncio.create_task(_enrich_sgdb())
         asyncio.create_task(_enrich_exophase_360_icons())
 
 
@@ -286,6 +322,7 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(run_sync())
     asyncio.create_task(_enrich_hltb())
     asyncio.create_task(_enrich_igdb())
+    asyncio.create_task(_enrich_sgdb())
 
     _scheduler.add_job(run_sync, "interval", hours=config.SYNC_INTERVAL_HOURS)
     _scheduler.start()
@@ -421,6 +458,7 @@ async def games(
                 pg.name,
                 pg.icon_url,
                 pg.store_id,
+                pg.sgdb_cover_url,
                 ig.cover_url        AS igdb_cover_url,
                 ug.playtime_minutes,
                 ug.earned_achievements,
@@ -459,6 +497,7 @@ async def game_detail(platform_game_id: int):
                 pg.name,
                 pg.icon_url,
                 pg.store_id,
+                pg.sgdb_cover_url,
                 pg.hltb_main,
                 pg.hltb_extra,
                 pg.hltb_complete,
@@ -906,6 +945,13 @@ async def igdb_refresh(platform: str | None = None):
             )
         log.info("Reset failed IGDB lookups for platform=%s", platform)
     asyncio.create_task(_enrich_igdb(retry_failed=True))
+    return {"status": "started"}
+
+
+@app.post("/api/sgdb-refresh", status_code=202)
+async def sgdb_refresh():
+    """Re-run SteamGridDB enrichment for all games without a cover."""
+    asyncio.create_task(_enrich_sgdb(retry_failed=True))
     return {"status": "started"}
 
 

@@ -157,6 +157,13 @@ async def set_igdb_id(conn, platform_game_id: int, igdb_id: int) -> None:
     )
 
 
+async def set_sgdb_cover(conn, platform_game_id: int, cover_url: str) -> None:
+    await conn.execute(
+        "UPDATE platform_games SET sgdb_cover_url = %s WHERE id = %s",
+        (cover_url, platform_game_id),
+    )
+
+
 async def set_store_id(conn, platform_game_id: int, store_id: str) -> None:
     await conn.execute(
         "UPDATE platform_games SET store_id = %s WHERE id = %s",
