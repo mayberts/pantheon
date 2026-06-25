@@ -115,7 +115,10 @@ class WargamingPlatform(Platform):
                     log.warning("Wargaming achievements fetch failed for %s", game_key)
                     continue
 
-                ach_data = (ach_resp.json().get("data") or {}).get(str(account_id)) or {}
+                ach_json = ach_resp.json()
+                log.info("Wargaming %s ach response status=%s data_keys=%s",
+                         game_key, ach_json.get("status"), list((ach_json.get("data") or {}).keys())[:5])
+                ach_data = (ach_json.get("data") or {}).get(str(account_id)) or {}
                 earned_map: dict[str, int] = {}
                 if game_key == "wows":
                     # WoWS may return a flat dict {name: count} or nested {category: {name: count}}
