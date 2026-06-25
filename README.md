@@ -1,92 +1,88 @@
 # Pantheon
 
-A self-hosted, single-user cross-platform achievement aggregator. Your own
-Trophies Hunter / Exophase, running on your own box. Phase 1 ships Steam and
-RetroAchievements; the worker layer is built so PSN, Xbox and GOG drop in later.
+A self-hosted, single-user cross-platform achievement aggregator. Track achievements across Steam, Xbox, and RetroAchievements in one dashboard — your own Exophase, running on your own box.
 
 ## Stack
 
-FastAPI + APScheduler in one container, Postgres for storage, a vanilla-JS
-"service record" dashboard. No login, no leaderboards, no multi-tenancy: it is
-yours alone.
+FastAPI + APScheduler in one container, Postgres for storage, a vanilla-JS dashboard. No login, no leaderboards, no multi-tenancy: it is yours alone.
 
 ## Quick start
 
 ```bash
 cp .env.example .env
-# fill in STEAM_API_KEY + STEAM_ID and/or RA_USERNAME + RA_API_KEY
+# Fill in credentials for the platforms you want (see below)
 docker compose up -d --build
 ```
 
-Open `http://<host>:8744`. On first run it seeds your accounts from `.env`,
-applies the schema, and kicks off an initial sync automatically. The first
-Steam sync walks your whole library (two API calls per game with achievements),
-so it can take a few minutes. After that it refreshes every `SYNC_INTERVAL_HOURS`,
-and the dashboard has a manual **Sync now** button.
+Open `http://<host>:8744`. On first run it seeds your accounts from `.env`, applies the schema, and kicks off an initial sync automatically. After that it refreshes every `SYNC_INTERVAL_HOURS`, and the dashboard has a manual **Sync now** button.
 
-## Getting keys
+## Supported platforms
 
-- **Steam API key**: https://steamcommunity.com/dev/apikey
+| Platform | Achievements | Playtime | Notes |
+|---|---|---|---|
+| **Steam** | ✅ | ✅ | Full unlock dates, rarity |
+| **Xbox** (One/Series) | ✅ | ✅ (if available) | Requires device-code auth via `/api/xbox-setup` |
+| **Xbox 360** | ✅ earned | ❌ | Locked achievements via Exophase import |
+| **RetroAchievements** | ✅ | ❌ | |
+
+## Getting credentials
+
+### Steam
+- **API key**: https://steamcommunity.com/dev/apikey
 - **SteamID (64-bit)**: https://steamid.io — paste your profile URL, copy `steamID64`
-- **RetroAchievements**: Settings -> Keys. `RA_USERNAME` owns the key,
-  `RA_TARGET_USER` is the record to pull (same as username for yourself).
+- Your Steam profile and game details must be **public**
 
-Your Steam profile and game details must be **public** for the Web API to
-return achievement data.
+### Xbox
+1. Set `XBOX_CLIENT_ID` in `.env` (register an app at https://portal.azure.com)
+2. Start the app, then open `http://<host>:8744/api/xbox-setup` in your browser
+3. Follow the device-code flow — `XBOX_REFRESH_TOKEN` is saved automatically
+
+### RetroAchievements
+- Settings → Keys on retroachievements.org
+- `RA_TARGET_USER` defaults to `RA_USERNAME` if left blank
+
+### IGDB (optional — portrait cover art fallback)
+- Create a Twitch app at https://dev.twitch.tv/console/apps (category: Game Integration)
+- Add `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` to `.env`
+
+### SteamGridDB (optional — landscape cover art, recommended)
+- Get your API key at https://www.steamgriddb.com/profile/preferences/api
+- Add `SGDB_API_KEY` to `.env`
+- After deploying, trigger a backfill: `POST /api/sgdb-refresh`
+- Use the **Change Cover** button on any game detail page to manually pick or fix a cover
+
+### Exophase (optional — Xbox 360 locked achievements)
+- Used to import locked achievement lists for Xbox 360 games that the Microsoft API won't return
+- Extract credentials from your browser session on exophase.com (see browser console snippet)
+
+## Cover art priority
+
+For non-Steam games, covers are resolved in this order:
+1. **SteamGridDB** landscape grid (460×215 or 920×430)
+2. **IGDB** portrait cover (cropped to landscape)
+3. **Platform icon** (Xbox tile image)
+
+The **Change Cover** button on each game's detail page lets you search SGDB by name or game ID and save a specific image.
 
 ## API
 
-| Method | Path           | Purpose                                   |
-|--------|----------------|-------------------------------------------|
-| GET    | `/api/summary` | Overall + per-platform completion         |
-| GET    | `/api/games`   | Library (`?sort=completion\|recent\|playtime\|name`) |
-| POST   | `/api/sync`    | Trigger a full sync (202, or 409 if busy) |
-| GET    | `/api/status`  | Linked accounts + last 10 sync runs       |
-
-## Adding a platform
-
-The data model is platform-agnostic, so a new platform is one worker file:
-
-1. Create `app/platforms/<name>.py` with a class subclassing `Platform`
-   (see `base.py`), implementing `sync(self, account, conn)` and mapping the
-   platform's API onto the `upsert_*` helpers.
-2. Register it in `app/platforms/__init__.py`.
-3. Add its credentials to `config.py` / `.env` and to `config.enabled_accounts()`.
-
-Recommended next workers and the libraries to wrap:
-
-- **PSN** — `psn-api` (Node/TS). Auth is an NPSSO token exchanged for
-  access/refresh tokens. The NPSSO expires roughly every two months, so store
-  the refresh token and add a re-auth path. Easiest as a tiny Node sidecar
-  container that exposes JSON to the Python app, or port the token flow.
-- **Xbox** — either the OpenXBL gateway (`xbl.io`, free tier 150 req/hr) for a
-  simple REST key, or `xbox-webapi-python` to do the XSTS auth flow fully
-  in-house with no third-party dependency.
-- **GOG** — unofficial `embed.gog.com` achievement endpoints, auth-token based.
-
-Once two or more platforms feed in, wire up `app/igdb.py` (stub) so the same
-game across platforms maps to one IGDB id and you get true deduplication.
-
-## Notes
-
-- Phase-1 RetroAchievements sync records game-level completion. Per-achievement
-  rows are a per-game call; the hook is `RetroAchievements._sync_game_detail`.
-- Steam per-achievement icons are skipped in phase 1 to limit API calls
-  (`GetSchemaForGame` would add them).
-- Keys live in `.env` for simplicity. When you add refreshable tokens (PSN/Xbox),
-  store those encrypted in `linked_accounts.credentials_enc` rather than env.
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/summary` | Overall + per-platform stats including playtime |
+| GET | `/api/games` | Library (`?sort=completion\|recent\|playtime\|name&platform=xbox\|steam\|retroachievements&completion=completed\|in_progress\|not_started`) |
+| GET | `/api/games/{id}` | Game detail with achievements and rarity |
+| POST | `/api/sync` | Trigger a full sync (202, or 409 if busy) |
+| GET | `/api/status` | Linked accounts + last 10 sync runs |
+| GET | `/api/xbox-setup` | Start Xbox device-code auth flow |
+| POST | `/api/igdb-refresh` | Re-run IGDB enrichment (`?platform=xbox` to reset failed Xbox lookups) |
+| POST | `/api/sgdb-refresh` | Re-run SteamGridDB cover enrichment |
+| GET | `/api/sgdb-search` | Search SGDB by name or game ID (`?q=`) |
+| POST | `/api/sgdb-set` | Save a specific SGDB cover URL to a game |
+| POST | `/api/exophase-import-icons` | Import locked achievements from Exophase JSON |
 
 ## Version control and updates
 
-Pantheon is meant to live in a Git repo so changes flow as commits, not file copies.
-
 ### One-time: publish to GitHub
-
-Easiest from VS Code on Windows: open the project folder, then Source Control ->
-Publish to Branch / "Publish to GitHub" and pick a private repo. VS Code creates the
-repo and pushes, honouring `.gitignore`.
-
-Equivalent from a terminal:
 
 ```bash
 git init
@@ -97,45 +93,28 @@ git remote add origin git@github.com:<you>/pantheon.git
 git push -u origin main
 ```
 
-`.env` and `pgdata/` are gitignored, so secrets and the database never get committed.
+`.env` and `pgdata/` are gitignored — secrets and the database are never committed.
 
 ### Tier 1: pull and rebuild on the box
-
-Simplest workflow. Edit and push from anywhere, then on the Unraid host:
 
 ```bash
 chmod +x update.sh   # once
 ./update.sh          # git pull --ff-only + docker compose up -d --build + prune
 ```
 
-### Tier 2: build in CI, pull the image (no build on the box)
+### Tier 2: build in CI, pull the image
 
-`.github/workflows/build.yml` builds the image on every push to `main` and pushes it to
-GHCR. The server then only pulls the finished image:
+`.github/workflows/build.yml` builds on every push to `main` and pushes to GHCR. On the host:
 
-1. Push to `main`; GitHub Actions publishes `ghcr.io/<you>/pantheon:latest`.
-2. On the host, deploy with `docker-compose.ghcr.yml` (set `<youruser>` first, and
-   `docker login ghcr.io` once if the package is private).
-3. Update with `docker compose -f docker-compose.ghcr.yml pull && docker compose -f docker-compose.ghcr.yml up -d`,
-   or just hit **Update Stack** in Compose Manager Plus, which pulls automatically.
+1. Push to `main` — GitHub Actions publishes `ghcr.io/<you>/pantheon:latest`
+2. Deploy with `docker-compose.ghcr.yml` (set `<youruser>` first, `docker login ghcr.io` once if private)
+3. Update: `docker compose -f docker-compose.ghcr.yml pull && docker compose -f docker-compose.ghcr.yml up -d`
 
-Gitea/Forgejo equivalents (Actions + built-in container registry) work the same way.
+## Local development
 
-## Local development (Windows + VS Code)
+1. Clone and open in VS Code
+2. `cp .env.example .env` and fill in your keys
+3. `docker compose up -d --build` → open `http://localhost:8744`
+4. Commit and push; deploy with `./update.sh` on the server
 
-Develop on Windows, deploy by pushing. The two checkouts (your PC and the Unraid
-host) share one remote.
-
-1. Clone the repo on Windows and open the folder in VS Code. It will offer the
-   recommended extensions (Python, Docker, YAML, GitLens).
-2. `copy .env.example .env` and add your keys (this `.env` stays local, gitignored).
-3. Run it locally on Docker Desktop:
-   `docker compose up -d --build`, then open `http://localhost:8744`. This builds
-   from source into a named volume, separate from any server deployment.
-4. Commit and push. VS Code's Source Control panel handles commit/push; sign into
-   GitHub via VS Code or use an SSH key.
-5. Deploy: on the Unraid host run `./update.sh` (Tier 1) or click Update Stack
-   (Tier 2).
-
-`.gitattributes` pins shell and code files to LF so the Windows checkout never
-breaks the Linux-side scripts.
+`.gitattributes` pins shell and code files to LF so Windows checkouts don't break Linux scripts.

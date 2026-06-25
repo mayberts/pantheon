@@ -23,6 +23,9 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql://pantheon:pantheon@db:5432/pantheon
+      IGDB_CLIENT_ID: ${IGDB_CLIENT_ID}
+      IGDB_CLIENT_SECRET: ${IGDB_CLIENT_SECRET}
+      SGDB_API_KEY: ${SGDB_API_KEY}
     ports:
       - "8744:8000"
     depends_on:
