@@ -26,6 +26,10 @@ IGDB_CLIENT_SECRET = os.getenv("IGDB_CLIENT_SECRET", "")
 
 SGDB_API_KEY = os.getenv("SGDB_API_KEY", "")
 
+WARGAMING_APP_ID = os.getenv("WARGAMING_APP_ID", "")
+WARGAMING_NICKNAME = os.getenv("WARGAMING_NICKNAME", "")
+WARGAMING_REGION = os.getenv("WARGAMING_REGION", "eu")
+
 EXOPHASE_PLAYER_ID = os.getenv("EXOPHASE_PLAYER_ID", "")
 EXOPHASE_REMEMBERME = os.getenv("EXOPHASE_REMEMBERME", "")
 EXOPHASE_XF_USER = os.getenv("EXOPHASE_XF_USER", "")
@@ -41,4 +45,6 @@ def enabled_accounts() -> list[dict]:
         accounts.append({"platform": "retroachievements", "external_id": RA_TARGET_USER})
     if XBOX_REFRESH_TOKEN or load_refresh_token():
         accounts.append({"platform": "xbox", "external_id": "xbox"})
+    if WARGAMING_APP_ID and WARGAMING_NICKNAME:
+        accounts.append({"platform": "wargaming", "external_id": WARGAMING_NICKNAME})
     return accounts
