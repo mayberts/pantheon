@@ -258,6 +258,51 @@
     display: block;
     border: 1px solid var(--border);
   }
+  .cover-change-btn {
+    margin-top: 6px; width: 100%; font-size: 0.6rem; letter-spacing: 0.12em;
+    text-transform: uppercase; background: var(--surface); border: 1px solid var(--border2);
+    color: var(--muted2); padding: 4px 0; cursor: pointer;
+  }
+  .cover-change-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+  .cover-modal-backdrop {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+    z-index: 1000; align-items: center; justify-content: center;
+  }
+  .cover-modal-backdrop.open { display: flex; }
+  .cover-modal {
+    background: var(--bg2); border: 1px solid var(--border2);
+    width: 700px; max-width: 95vw; max-height: 85vh;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .cover-modal-head {
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+    display: flex; gap: 10px; align-items: center;
+  }
+  .cover-modal-head input {
+    flex: 1; background: var(--surface); border: 1px solid var(--border2);
+    color: var(--text); padding: 6px 10px; font-family: inherit; font-size: 0.85rem;
+  }
+  .cover-modal-head button {
+    background: var(--cyan); color: var(--bg); border: none;
+    padding: 6px 14px; font-family: inherit; font-size: 0.75rem;
+    font-weight: 700; letter-spacing: 0.1em; cursor: pointer;
+  }
+  .cover-modal-close {
+    background: none; border: none; color: var(--muted2);
+    font-size: 1.2rem; cursor: pointer; padding: 0 4px;
+  }
+  .cover-modal-body { overflow-y: auto; padding: 14px 18px; }
+  .cover-game-label {
+    font-size: 0.6rem; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--muted2); margin: 10px 0 6px;
+  }
+  .cover-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+  .cover-grid img {
+    width: 100%; aspect-ratio: 460/215; object-fit: cover;
+    border: 2px solid transparent; cursor: pointer; display: block;
+  }
+  .cover-grid img:hover { border-color: var(--cyan); }
+  .cover-modal-status { font-size: 0.75rem; color: var(--muted2); padding: 8px 0; }
   .game-hero-cover-ph {
     width: 200px;
     aspect-ratio: 460/215;
@@ -532,6 +577,20 @@
 
   <div class="game-hero" id="gameHero">
     <div class="ach-loading-row">Loading…</div>
+  </div>
+
+  <!-- Cover picker modal -->
+  <div class="cover-modal-backdrop" id="coverModal">
+    <div class="cover-modal">
+      <div class="cover-modal-head">
+        <input id="coverSearchInput" type="text" placeholder="Search SteamGridDB…">
+        <button onclick="coverSearch()">Search</button>
+        <button class="cover-modal-close" onclick="closeCoverModal()">✕</button>
+      </div>
+      <div class="cover-modal-body" id="coverModalBody">
+        <div class="cover-modal-status">Search for a game to see cover options.</div>
+      </div>
+    </div>
   </div>
 
   <div class="ach-controls" id="achControls">
@@ -1059,9 +1118,10 @@ async function loadGameDetail(id) {
     bannerUrl = game.sgdb_cover_url || game.igdb_cover_url || game.icon_url;
   }
 
-  const cover = bannerUrl
-    ? `<div class="game-hero-cover"><img src="${bannerUrl}" alt="" onerror="this.outerHTML='<div class=game-hero-cover-ph>◈</div>'"></div>`
-    : `<div class="game-hero-cover-ph">◈</div>`;
+  const cover = `<div class="game-hero-cover">
+    ${bannerUrl ? `<img src="${bannerUrl}" alt="" onerror="this.outerHTML='<div class=game-hero-cover-ph>◈</div>'">` : `<div class="game-hero-cover-ph">◈</div>`}
+    <button class="cover-change-btn" onclick="openCoverModal(${game.platform_game_id}, '${esc(game.name).replace(/'/g,"\\'")}')">Change Cover</button>
+  </div>`;
 
   const xboxSearchName = game.name
     .replace(/[®™]/g, '')
@@ -1274,6 +1334,54 @@ function esc(s) {
     btn.classList.toggle('visible', window.scrollY > 400);
   }, { passive: true });
 })();
+
+// ── Cover picker ─────────────────────────────────────────────────────────────
+let _coverGameId = null;
+
+function openCoverModal(platformGameId, gameName) {
+  _coverGameId = platformGameId;
+  document.getElementById('coverSearchInput').value = gameName;
+  document.getElementById('coverModal').classList.add('open');
+  coverSearch();
+}
+
+function closeCoverModal() {
+  document.getElementById('coverModal').classList.remove('open');
+}
+
+document.getElementById('coverSearchInput')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') coverSearch();
+});
+
+document.getElementById('coverModal')?.addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeCoverModal();
+});
+
+async function coverSearch() {
+  const q = document.getElementById('coverSearchInput').value.trim();
+  if (!q) return;
+  const body = document.getElementById('coverModalBody');
+  body.innerHTML = '<div class="cover-modal-status">Searching…</div>';
+  const data = await fetch(`/api/sgdb-search?q=${encodeURIComponent(q)}`).then(r => r.json());
+  if (!data.games || !data.games.length) {
+    body.innerHTML = '<div class="cover-modal-status">No results found.</div>';
+    return;
+  }
+  body.innerHTML = data.games.map(g => `
+    <div class="cover-game-label">${esc(g.name)}</div>
+    <div class="cover-grid">
+      ${g.grids.map(url => `<img src="${url}" alt="" loading="lazy" onclick="setCover('${url}')">`).join('')}
+    </div>
+  `).join('');
+}
+
+async function setCover(url) {
+  if (!_coverGameId) return;
+  await fetch(`/api/sgdb-set?platform_game_id=${_coverGameId}&url=${encodeURIComponent(url)}`, {method:'POST'});
+  closeCoverModal();
+  // Refresh the hero image
+  document.querySelector('.game-hero-cover img').src = url;
+}
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 (function boot() {
