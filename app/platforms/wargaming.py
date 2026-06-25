@@ -116,9 +116,12 @@ class WargamingPlatform(Platform):
                     continue
 
                 ach_json = ach_resp.json()
-                log.info("Wargaming %s ach response status=%s data_keys=%s",
-                         game_key, ach_json.get("status"), list((ach_json.get("data") or {}).keys())[:5])
-                ach_data = (ach_json.get("data") or {}).get(str(account_id)) or {}
+                raw_data = ach_json.get("data") or {}
+                account_data = raw_data.get(str(account_id))
+                if account_data is None:
+                    log.info("Wargaming %s: account %s has no data (not played or private) — skipping", game_key, account_id)
+                    continue
+                ach_data = account_data or {}
                 earned_map: dict[str, int] = {}
                 if game_key == "wows":
                     # WoWS may return a flat dict {name: count} or nested {category: {name: count}}
@@ -129,14 +132,10 @@ class WargamingPlatform(Platform):
                         for category_val in ach_data.values():
                             if isinstance(category_val, dict):
                                 raw_achievements.update(category_val)
-                        log.info("Wargaming wows account achievements: nested, %d categories, %d total", len(ach_data), len(raw_achievements))
                     else:
                         raw_achievements = ach_data
-                        log.info("Wargaming wows account achievements: flat, %d entries", len(raw_achievements))
                 else:
                     raw_achievements = ach_data.get("achievements") or {}
-                    log.info("Wargaming wot account achievements: keys=%s raw_len=%d ach_data_keys=%s",
-                             list(raw_achievements.keys())[:5], len(raw_achievements), list(ach_data.keys())[:5])
                 for k, v in raw_achievements.items():
                     if isinstance(v, dict):
                         earned_map[k] = v.get("count", 1) or 1
