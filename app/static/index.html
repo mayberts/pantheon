@@ -196,6 +196,7 @@
   }
   .plat-badge.ra { background: #1a1a2e; border-color: #333; color: var(--muted2); }
   .plat-badge.xbox { background: #0e3d0e; border-color: #107c10; color: #4ec94e; }
+  .plat-badge.wargaming { background: #3a1a00; border-color: #c4380a; color: #e8622a; }
   .plat-badge img { width: 12px; height: 12px; }
   a.plat-badge { text-decoration: none; cursor: pointer; }
   a.plat-badge:hover { opacity: 0.8; }
@@ -501,6 +502,7 @@
           <option value="steam">Steam</option>
           <option value="retroachievements">RetroAchievements</option>
           <option value="xbox">Xbox</option>
+          <option value="wargaming">Wargaming</option>
         </select>
       </div>
     </div>
@@ -763,6 +765,7 @@ async function loadStats() {
     xbox:              { bg: '#107c10cc', border: '#4ec94e' },
     steam:             { bg: '#1b6fa8cc', border: '#66c0f4' },
     retroachievements: { bg: '#444466cc', border: '#8888bb' },
+    wargaming:         { bg: '#8b2500cc', border: '#e8622a' },
   };
   destroyChart('platformChart');
   charts['platformChart'] = new Chart(document.getElementById('platformChart'), {
@@ -1007,6 +1010,7 @@ function gameCardHTML(g) {
   const badge = g.platform === 'steam'
     ? `<span class="plat-badge"><img src="https://store.steampowered.com/favicon.ico" alt="">Steam</span>`
     : g.platform === 'xbox' ? `<span class="plat-badge xbox">Xbox</span>`
+    : g.platform === 'wargaming' ? `<span class="plat-badge wargaming">Wargaming</span>`
     : `<span class="plat-badge ra">RetroAchievements</span>`;
 
   return `
@@ -1135,12 +1139,16 @@ async function loadGameDetail(id) {
     ? `https://store.steampowered.com/app/${game.platform_app_id}`
     : game.platform === 'xbox'
     ? xboxUrl
+    : game.platform === 'wargaming'
+    ? `https://worldoftanks.eu/en/community/accounts/`
     : `https://retroachievements.org/game/${game.platform_app_id}`;
-  const storeLabel = game.platform === 'steam' ? 'Steam Store' : game.platform === 'xbox' ? 'Xbox Store' : 'RetroAchievements';
+  const storeLabel = game.platform === 'steam' ? 'Steam Store' : game.platform === 'xbox' ? 'Xbox Store' : game.platform === 'wargaming' ? 'Wargaming' : 'RetroAchievements';
   const badge = game.platform === 'steam'
     ? `<a class="plat-badge" href="${storeUrl}" target="_blank" rel="noopener"><img src="https://store.steampowered.com/favicon.ico" alt="">Steam</a>`
     : game.platform === 'xbox'
     ? `<a class="plat-badge xbox" href="${storeUrl}" target="_blank" rel="noopener">Xbox</a>`
+    : game.platform === 'wargaming'
+    ? `<a class="plat-badge wargaming" href="${storeUrl}" target="_blank" rel="noopener">Wargaming</a>`
     : `<a class="plat-badge ra" href="${storeUrl}" target="_blank" rel="noopener">RetroAchievements</a>`;
 
   const hltbMain     = fmtHLTB(game.hltb_main);
@@ -1320,6 +1328,7 @@ function platLabel(p) {
   if (p === 'steam') return 'Steam';
   if (p === 'retroachievements') return 'RetroAchievements';
   if (p === 'xbox') return 'Xbox';
+  if (p === 'wargaming') return 'Wargaming';
   return p;
 }
 
