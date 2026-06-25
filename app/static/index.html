@@ -1328,12 +1328,10 @@ function esc(s) {
 }
 
 // ── Back to top ──────────────────────────────────────────────────────────────
-(function() {
+window.addEventListener('scroll', () => {
   const btn = document.getElementById('backToTop');
-  if (btn) window.addEventListener('scroll', () => {
-    btn.classList.toggle('visible', window.scrollY > 400);
-  }, { passive: true });
-})();
+  if (btn) btn.classList.toggle('visible', window.scrollY > 400);
+}, { passive: true });
 
 // ── Cover picker ─────────────────────────────────────────────────────────────
 let _coverGameId = null;
@@ -1397,6 +1395,7 @@ async function setCover(url) {
 })();
 </script>
 <button class="back-to-top" id="backToTop" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top">↑</button>
+
 
 <div id="platformModal" style="display:none;position:fixed;inset:0;z-index:1000;background:#000a;overflow-y:auto" onclick="if(event.target===this)closePlatformModal()">
   <div style="max-width:780px;margin:48px auto;background:var(--surface);border:1px solid var(--border);padding:24px 28px">
