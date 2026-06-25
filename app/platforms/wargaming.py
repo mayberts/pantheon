@@ -84,7 +84,15 @@ class WargamingPlatform(Platform):
                 )
                 encyclopedia: dict[str, dict] = {}
                 if enc_resp.status_code == 200:
-                    encyclopedia = enc_resp.json().get("data") or {}
+                    raw_enc = enc_resp.json().get("data") or {}
+                    if game_key == "wows":
+                        # WoWS encyclopedia uses numeric IDs as keys; re-key by name
+                        encyclopedia = {
+                            v["name"]: v for v in raw_enc.values()
+                            if isinstance(v, dict) and v.get("name")
+                        }
+                    else:
+                        encyclopedia = raw_enc
 
                 total = len(encyclopedia)
 
@@ -100,8 +108,14 @@ class WargamingPlatform(Platform):
 
                 ach_data = (ach_resp.json().get("data") or {}).get(str(account_id)) or {}
                 earned_map: dict[str, int] = {}
-                # achievements dict: name -> count (ribbons/series) or name -> {count, ...}
-                raw_achievements = ach_data.get("achievements") or {}
+                if game_key == "wows":
+                    # WoWS nests achievements under category keys ("battle", "progress", etc.)
+                    raw_achievements: dict = {}
+                    for category_val in ach_data.values():
+                        if isinstance(category_val, dict):
+                            raw_achievements.update(category_val)
+                else:
+                    raw_achievements = ach_data.get("achievements") or {}
                 for k, v in raw_achievements.items():
                     if isinstance(v, dict):
                         earned_map[k] = v.get("count", 1) or 1
