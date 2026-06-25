@@ -40,6 +40,7 @@ ALTER TABLE platform_games ADD COLUMN IF NOT EXISTS hltb_complete NUMERIC;
 ALTER TABLE platform_games ADD COLUMN IF NOT EXISTS igdb_id       BIGINT REFERENCES igdb_games(id);
 ALTER TABLE platform_games ADD COLUMN IF NOT EXISTS store_id      TEXT;
 ALTER TABLE platform_games ADD COLUMN IF NOT EXISTS xbox_pfn      TEXT;
+ALTER TABLE platform_games ADD COLUMN IF NOT EXISTS sgdb_cover_url TEXT;
 -- Clear previously stored store_ids so the improved title-match check re-validates them
 UPDATE platform_games SET store_id = NULL WHERE platform = 'xbox' AND store_id IS NOT NULL;
 

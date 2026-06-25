@@ -938,8 +938,8 @@ function gameCardHTML(g) {
   const isSteam = g.platform === 'steam';
   const bannerUrl = isSteam
     ? `https://cdn.akamai.steamstatic.com/steam/apps/${g.platform_app_id}/header.jpg`
-    : g.igdb_cover_url || g.icon_url;
-  const isPortrait = !isSteam && !!g.igdb_cover_url;
+    : g.sgdb_cover_url || g.igdb_cover_url || g.icon_url;
+  const isPortrait = !isSteam && !g.sgdb_cover_url && !!g.igdb_cover_url;
 
   const banner = bannerUrl
     ? `<img class="game-card-banner${isPortrait ? ' portrait' : ''}" src="${bannerUrl}" alt="" onerror="this.outerHTML='<div class=game-card-banner-ph>◈</div>'">`
@@ -1056,7 +1056,7 @@ async function loadGameDetail(id) {
   if (game.platform === 'steam') {
     bannerUrl = `https://cdn.akamai.steamstatic.com/steam/apps/${game.platform_app_id}/header.jpg`;
   } else {
-    bannerUrl = game.igdb_cover_url || game.icon_url;
+    bannerUrl = game.sgdb_cover_url || game.igdb_cover_url || game.icon_url;
   }
 
   const cover = bannerUrl
