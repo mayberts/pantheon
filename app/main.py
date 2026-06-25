@@ -955,6 +955,44 @@ async def sgdb_refresh():
     return {"status": "started"}
 
 
+@app.get("/api/sgdb-search")
+async def sgdb_search(q: str):
+    """Search SteamGridDB and return grid images for a query."""
+    if not config.SGDB_API_KEY:
+        return {"error": "SGDB not configured"}
+    import httpx
+    headers = {"Authorization": f"Bearer {config.SGDB_API_KEY}"}
+    base = "https://www.steamgriddb.com/api/v2"
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.get(f"{base}/search/autocomplete/{q}", headers=headers)
+        if resp.status_code != 200:
+            return {"games": []}
+        games = resp.json().get("data") or []
+        results = []
+        for game in games[:5]:
+            game_id = game["id"]
+            grids = []
+            for dims in ("460x215", "920x430"):
+                gr = await client.get(
+                    f"{base}/grids/game/{game_id}",
+                    headers=headers,
+                    params={"dimensions": dims, "limit": 6},
+                )
+                if gr.status_code == 200 and gr.json().get("data"):
+                    grids.extend(gr.json()["data"])
+            results.append({"id": game_id, "name": game["name"], "grids": [g["url"] for g in grids]})
+        return {"games": results}
+
+
+@app.post("/api/sgdb-set")
+async def sgdb_set(platform_game_id: int, url: str):
+    """Manually set the SGDB cover URL for a game."""
+    pool = await db.get_pool()
+    async with pool.connection() as conn:
+        await db.set_sgdb_cover(conn, platform_game_id, url)
+    return {"status": "ok"}
+
+
 @app.get("/api/sync/progress")
 async def sync_progress():
     return _sync_progress
