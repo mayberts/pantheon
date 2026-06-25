@@ -957,13 +957,27 @@ async def sgdb_refresh():
 
 @app.get("/api/sgdb-search")
 async def sgdb_search(q: str):
-    """Search SteamGridDB and return grid images for a query."""
+    """Search SteamGridDB by name or numeric game ID."""
     if not config.SGDB_API_KEY:
         return {"error": "SGDB not configured"}
     import httpx
     headers = {"Authorization": f"Bearer {config.SGDB_API_KEY}"}
     base = "https://www.steamgriddb.com/api/v2"
     async with httpx.AsyncClient(timeout=15) as client:
+        # If query is a numeric ID, fetch grids directly
+        if q.strip().isdigit():
+            game_id = int(q.strip())
+            grids = []
+            for dims in ("460x215", "920x430"):
+                gr = await client.get(
+                    f"{base}/grids/game/{game_id}",
+                    headers=headers,
+                    params={"dimensions": dims, "limit": 6},
+                )
+                if gr.status_code == 200 and gr.json().get("data"):
+                    grids.extend(gr.json()["data"])
+            return {"games": [{"id": game_id, "name": f"Game ID {game_id}", "grids": [g["url"] for g in grids]}]}
+
         resp = await client.get(f"{base}/search/autocomplete/{q}", headers=headers)
         if resp.status_code != 200:
             return {"games": []}
