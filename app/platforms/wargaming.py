@@ -86,13 +86,22 @@ class WargamingPlatform(Platform):
                 if enc_resp.status_code == 200:
                     raw_enc = enc_resp.json().get("data") or {}
                     if game_key == "wows":
-                        # WoWS encyclopedia uses numeric IDs as keys; re-key by name
-                        encyclopedia = {
-                            v["name"]: v for v in raw_enc.values()
-                            if isinstance(v, dict) and v.get("name")
-                        }
+                        # WoWS encyclopedia uses numeric IDs as keys; re-key by achievement name
+                        if isinstance(raw_enc, dict):
+                            encyclopedia = {
+                                v["name"]: v for v in raw_enc.values()
+                                if isinstance(v, dict) and v.get("name")
+                            }
+                        elif isinstance(raw_enc, list):
+                            encyclopedia = {
+                                v["name"]: v for v in raw_enc
+                                if isinstance(v, dict) and v.get("name")
+                            }
                     else:
                         encyclopedia = raw_enc
+                    log.info("Wargaming %s encyclopedia: %d achievements", game_key, len(encyclopedia))
+                else:
+                    log.warning("Wargaming %s encyclopedia fetch failed: %s", game_key, enc_resp.status_code)
 
                 total = len(encyclopedia)
 
@@ -123,6 +132,12 @@ class WargamingPlatform(Platform):
                         earned_map[k] = v
 
                 earned = len(earned_map)
+                log.info("Wargaming %s: earned=%d total=%d", game_key, earned, total)
+
+                # If encyclopedia was empty, fall back to account achievements for total
+                if not encyclopedia and raw_achievements:
+                    log.warning("Wargaming %s encyclopedia empty; using account achievements as total", game_key)
+                    total = len(raw_achievements)
 
                 self._inc("games_seen")
                 pg_id = await db.upsert_platform_game(
