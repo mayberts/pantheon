@@ -104,31 +104,49 @@ async def complete_2fa(two_factor_ticket: str, code: str) -> dict:
 
 async def refresh_session() -> tuple[str, str]:
     """
-    Use the stored rememberMeTicket to get a fresh session ticket + profileId.
-    Returns (ticket, profile_id).
+    Renew the stored Ubisoft credential and return (session_ticket, profile_id).
+
+    The stored token may be either:
+      - a rememberMeTicket (from the setup flow) → renew with `rm` auth
+      - a session ticket (JWE grabbed from the browser's localStorage,
+        starts with "ewog") → renew with `Ubi_v1 t=` auth
+
+    Renewal returns a fresh ticket + rememberMeTicket which we persist so
+    future syncs use the long-lived credential.
     """
-    remember_me = _load_remember_me()
-    if not remember_me:
+    stored = _load_remember_me()
+    if not stored:
         raise RuntimeError("Ubisoft not configured — run the setup flow at /api/ubisoft-setup")
 
-    headers = {**_base_headers(), "Authorization": f"rm {remember_me}"}
+    # JWE session tickets are base64 of a JSON header, which starts "ewog" ({\n)
+    is_session_ticket = stored.startswith("ewog") or "." in stored
+    auth_schemes = (
+        [f"Ubi_v1 t={stored}", f"rm {stored}"]
+        if is_session_ticket
+        else [f"rm {stored}", f"Ubi_v1 t={stored}"]
+    )
+
+    last_err = ""
     async with httpx.AsyncClient(timeout=20) as client:
-        resp = await client.post(
-            f"{_BASE}/v3/profiles/sessions",
-            json={"rememberMe": True},
-            headers=headers,
-        )
+        for auth in auth_schemes:
+            headers = {**_base_headers(), "Authorization": auth}
+            resp = await client.post(
+                f"{_BASE}/v3/profiles/sessions",
+                json={"rememberMe": True},
+                headers=headers,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                new_rm = data.get("rememberMeTicket", "")
+                ticket = data.get("ticket", "")
+                profile_id = data.get("profileId", "")
+                # Persist the long-lived rememberMeTicket when we get one;
+                # otherwise keep the (still-valid) ticket for the next run.
+                _save_session(ticket, new_rm or (ticket if not new_rm else ""))
+                return ticket or stored, profile_id
+            last_err = f"HTTP {resp.status_code} — {resp.text[:200]}"
 
-    if resp.status_code != 200:
-        raise RuntimeError(f"Ubisoft session refresh failed: HTTP {resp.status_code} — {resp.text[:300]}")
-
-    data = resp.json()
-    new_rm = data.get("rememberMeTicket", "")
-    ticket = data.get("ticket", "")
-    profile_id = data.get("profileId", "")
-    if new_rm:
-        _save_session(ticket, new_rm)
-    return ticket, profile_id
+    raise RuntimeError(f"Ubisoft session refresh failed: {last_err}")
 
 
 def load_remember_me() -> str | None:
