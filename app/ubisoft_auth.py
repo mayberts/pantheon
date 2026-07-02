@@ -8,9 +8,10 @@ Setup (one-time):
   4. Done — rememberMeTicket is saved automatically for future syncs
 """
 
+import json
 import logging
 import os
-from base64 import b64encode
+from base64 import b64encode, urlsafe_b64decode
 from pathlib import Path
 
 import httpx
@@ -18,7 +19,9 @@ import httpx
 log = logging.getLogger(__name__)
 
 _BASE = "https://public-ubiservices.ubi.com"
-_APP_ID = "e3d5ea9e-50bd-43b7-88bf-39794f4e3d40"  # Ubisoft PC client app ID
+# Ubisoft Connect web-client App ID — the one the browser uses and that the
+# public API accepts for session tickets grabbed from localStorage.
+_APP_ID = "74e71609-1ddf-47da-9073-71ac3aa8c90c"
 _TOKEN_FILE = Path("/data/ubisoft_remember_me.txt")
 _SESSION_FILE = Path("/data/ubisoft_session.txt")
 
@@ -30,6 +33,26 @@ def _base_headers(app_id: str = _APP_ID) -> dict:
         "Accept": "application/json",
         "User-Agent": "UbiServices_SDK_2019.Release.27_PC64_ansi_static",
     }
+
+
+def _sid_from_ticket(ticket: str) -> str:
+    """Extract the session id (sid) embedded in a JWE session ticket's header."""
+    try:
+        header_b64 = ticket.split(".", 1)[0]
+        pad = "=" * (-len(header_b64) % 4)
+        header = json.loads(urlsafe_b64decode(header_b64 + pad))
+        return header.get("sid", "")
+    except Exception:
+        return ""
+
+
+def session_headers(ticket: str) -> dict:
+    """Build authenticated headers for API calls using a session ticket."""
+    headers = {**_base_headers(), "Authorization": f"Ubi_v1 t={ticket}"}
+    sid = _sid_from_ticket(ticket)
+    if sid:
+        headers["Ubi-SessionId"] = sid
+    return headers
 
 
 async def start_auth(email: str, password: str) -> dict:
@@ -137,35 +160,25 @@ async def refresh_session() -> tuple[str, str]:
                 _save_session(ticket, new_rm)
             return ticket, data.get("profileId", "")
 
-        # Session ticket → use directly; fetch profileId from a "me" endpoint
-        headers = {**_base_headers(), "Authorization": f"Ubi_v1 t={stored}"}
+        # Session ticket → use directly; fetch profileId from /v3/profiles/me
+        headers = session_headers(stored)
         profile_id = await _lookup_profile_id(client, headers)
         return stored, profile_id
 
 
 async def _lookup_profile_id(client: httpx.AsyncClient, headers: dict) -> str:
     """Resolve the current account's profileId using a valid session ticket."""
-    for url in (
-        f"{_BASE}/v3/profiles/me",
-        f"{_BASE}/v3/users/me",
-        f"{_BASE}/v3/profiles",
-    ):
-        resp = await client.get(url, headers=headers)
-        if resp.status_code == 200:
-            data = resp.json()
-            # /v3/profiles returns {"profiles": [{...}]}; the others return a flat object
-            profile = data
-            if isinstance(data.get("profiles"), list) and data["profiles"]:
-                profile = data["profiles"][0]
-            pid = profile.get("profileId") or profile.get("userId")
-            if pid:
-                return pid
-        if resp.status_code == 401:
-            raise RuntimeError(
-                "Ubisoft session ticket expired or invalid (401). Grab a fresh ticket from "
-                "connect.ubisoft.com → DevTools → Local storage and re-save it."
-            )
-    raise RuntimeError("Could not resolve Ubisoft profileId from any /me endpoint")
+    resp = await client.get(f"{_BASE}/v3/profiles/me", headers=headers)
+    if resp.status_code == 200:
+        pid = resp.json().get("profileId")
+        if pid:
+            return pid
+    if resp.status_code == 401:
+        raise RuntimeError(
+            "Ubisoft session ticket expired or invalid (401). Grab a fresh ticket from "
+            "connect.ubisoft.com → DevTools → Local storage and re-save it."
+        )
+    raise RuntimeError(f"Could not resolve Ubisoft profileId: HTTP {resp.status_code} — {resp.text[:200]}")
 
 
 def load_remember_me() -> str | None:
