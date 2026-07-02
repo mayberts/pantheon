@@ -5,7 +5,7 @@ import httpx
 
 from app import config, db
 from app.platforms.base import Platform
-from app.ubisoft_auth import refresh_session, _base_headers
+from app.ubisoft_auth import refresh_session, session_headers
 
 log = logging.getLogger(__name__)
 
@@ -21,10 +21,7 @@ class UbisoftPlatform(Platform):
         if not ticket or not profile_id:
             raise RuntimeError("Ubisoft session refresh returned empty credentials")
 
-        headers = {
-            **_base_headers(),
-            "Authorization": f"Ubi_v1 t={ticket}",
-        }
+        headers = session_headers(ticket)
 
         linked_id = await db.upsert_linked_account(conn, "ubisoft", profile_id)
         earned_cache = await db.get_earned_counts(conn, linked_id)
