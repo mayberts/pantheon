@@ -104,49 +104,68 @@ async def complete_2fa(two_factor_ticket: str, code: str) -> dict:
 
 async def refresh_session() -> tuple[str, str]:
     """
-    Renew the stored Ubisoft credential and return (session_ticket, profile_id).
+    Return (session_ticket, profile_id) for API calls.
 
     The stored token may be either:
-      - a rememberMeTicket (from the setup flow) → renew with `rm` auth
+      - a rememberMeTicket (from the setup flow) → renew it with `rm` auth,
+        which yields a fresh session ticket + profileId directly
       - a session ticket (JWE grabbed from the browser's localStorage,
-        starts with "ewog") → renew with `Ubi_v1 t=` auth
-
-    Renewal returns a fresh ticket + rememberMeTicket which we persist so
-    future syncs use the long-lived credential.
+        starts with "ewog") → use it directly as `Ubi_v1 t=`; the profileId
+        is encrypted inside the JWE so we look it up via the /profiles/me API
     """
     stored = _load_remember_me()
     if not stored:
         raise RuntimeError("Ubisoft not configured — run the setup flow at /api/ubisoft-setup")
 
-    # JWE session tickets are base64 of a JSON header, which starts "ewog" ({\n)
-    is_session_ticket = stored.startswith("ewog") or "." in stored
-    auth_schemes = (
-        [f"Ubi_v1 t={stored}", f"rm {stored}"]
-        if is_session_ticket
-        else [f"rm {stored}", f"Ubi_v1 t={stored}"]
-    )
+    is_session_ticket = stored.startswith("ewog")
 
-    last_err = ""
     async with httpx.AsyncClient(timeout=20) as client:
-        for auth in auth_schemes:
-            headers = {**_base_headers(), "Authorization": auth}
+        if not is_session_ticket:
+            # rememberMeTicket → renew to get a session ticket + profileId
+            headers = {**_base_headers(), "Authorization": f"rm {stored}"}
             resp = await client.post(
                 f"{_BASE}/v3/profiles/sessions",
                 json={"rememberMe": True},
                 headers=headers,
             )
-            if resp.status_code == 200:
-                data = resp.json()
-                new_rm = data.get("rememberMeTicket", "")
-                ticket = data.get("ticket", "")
-                profile_id = data.get("profileId", "")
-                # Persist the long-lived rememberMeTicket when we get one;
-                # otherwise keep the (still-valid) ticket for the next run.
-                _save_session(ticket, new_rm or (ticket if not new_rm else ""))
-                return ticket or stored, profile_id
-            last_err = f"HTTP {resp.status_code} — {resp.text[:200]}"
+            if resp.status_code != 200:
+                raise RuntimeError(f"Ubisoft session refresh failed: HTTP {resp.status_code} — {resp.text[:200]}")
+            data = resp.json()
+            new_rm = data.get("rememberMeTicket", "")
+            ticket = data.get("ticket", "")
+            if new_rm:
+                _save_session(ticket, new_rm)
+            return ticket, data.get("profileId", "")
 
-    raise RuntimeError(f"Ubisoft session refresh failed: {last_err}")
+        # Session ticket → use directly; fetch profileId from a "me" endpoint
+        headers = {**_base_headers(), "Authorization": f"Ubi_v1 t={stored}"}
+        profile_id = await _lookup_profile_id(client, headers)
+        return stored, profile_id
+
+
+async def _lookup_profile_id(client: httpx.AsyncClient, headers: dict) -> str:
+    """Resolve the current account's profileId using a valid session ticket."""
+    for url in (
+        f"{_BASE}/v3/profiles/me",
+        f"{_BASE}/v3/users/me",
+        f"{_BASE}/v3/profiles",
+    ):
+        resp = await client.get(url, headers=headers)
+        if resp.status_code == 200:
+            data = resp.json()
+            # /v3/profiles returns {"profiles": [{...}]}; the others return a flat object
+            profile = data
+            if isinstance(data.get("profiles"), list) and data["profiles"]:
+                profile = data["profiles"][0]
+            pid = profile.get("profileId") or profile.get("userId")
+            if pid:
+                return pid
+        if resp.status_code == 401:
+            raise RuntimeError(
+                "Ubisoft session ticket expired or invalid (401). Grab a fresh ticket from "
+                "connect.ubisoft.com → DevTools → Local storage and re-save it."
+            )
+    raise RuntimeError("Could not resolve Ubisoft profileId from any /me endpoint")
 
 
 def load_remember_me() -> str | None:
