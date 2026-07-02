@@ -30,7 +30,8 @@ class UbisoftPlatform(Platform):
             # Fetch played games
             await asyncio.sleep(delay)
             games_resp = await client.get(
-                f"{_BASE}/v2/profiles/{profile_id}/playedgames",
+                f"{_BASE}/v1/profiles/me/gamesplayed",
+                params={"spaceIds": "", "spacePlatformTypes": "", "applicationPlatformTypes": ""},
                 headers=headers,
             )
             if games_resp.status_code != 200:
